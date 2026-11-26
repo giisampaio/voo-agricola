@@ -53,6 +53,7 @@ function Flight() {
 }
 
 Flight.prototype.reset = function (o) {
+  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0;
   this.psi = o.psi || 0; this.theta = AC.thetaGround; this.phi = 0;
   this.onGround = true; this.vf = 0; this.p = 0; this.q = 0; this.r = 0;
   this.pow = 0; this.rev = 0; this.flap = o.flap || 0; this.flapPos = this.flap; this.hopper = o.hopper || 0;
@@ -67,7 +68,7 @@ Flight.prototype._setQuat = function () {
   this._e.set(this.theta, -this.psi, -this.phi, 'YXZ'); this.quat.setFromEuler(this._e);
 };
 Flight.prototype._placeOnGround = function () {
-  this.pos.y = this.groundY + 1.9 * Math.cos(this.theta) - 1.3 * Math.sin(this.theta);
+  this.pos.y = this.groundY + (this.dmg.gear === 2 ? 0.85 : 1.9 * Math.cos(this.theta) - 1.3 * Math.sin(this.theta));
 };
 Flight.prototype._readAttitude = function () {
   var f = this._a.set(0, 0, -1).applyQuaternion(this.quat);
@@ -82,7 +83,7 @@ Flight.prototype.worldPoint = function (l, out) {
 Flight.prototype.step = function (dt, c, wind) {
   if (this.crashed) return;
   var rv = this.onGround ? (c.reverse || 0) : 0;                 // reverso bloqueado em voo
-  var tgt = Math.max(c.throttle, rv * 0.7), tau = tgt > this.pow ? 1.1 : 0.7;
+  var tgt = this.dmg.engine ? 0 : Math.max(c.throttle, rv * 0.7), tau = tgt > this.pow ? 1.1 : 0.7;
   this.pow += (tgt - this.pow) * Math.min(1, dt / tau);
   this.rev += (rv - this.rev) * Math.min(1, dt / 0.5);
   this.flapPos += clamp(this.flap - this.flapPos, -dt / 1.5, dt / 1.5);
@@ -96,9 +97,10 @@ Flight.prototype._ground = function (dt, c, wind) {
   var Va = Math.max(0, this.vf + head);
   var qb = 0.5 * RHO * Va * Va;
   var co = aeroCoef(this.theta, this.flapPos, this.pow);
-  var L = qb * AC.S * co.CL, D = qb * AC.S * co.CD, T = thrust(Va, this.pow) * (1 - 1.5 * this.rev);
+  var L = qb * AC.S * co.CL, D = qb * AC.S * co.CD, T = this.dmg.engine ? 0 : thrust(Va, this.pow) * (1 - 1.5 * this.rev);
   var N = Math.max(0, W - L);
   var brk = c.brake || 0, mu = (c.mu || 0.045) + 0.36 * brk;
+  if (this.belly) mu = 0.5; else if (this.dmg.gear === 1) mu += 0.05;
   var dir = this.vf > 0.05 ? 1 : (this.vf < -0.05 ? -1 : 0), F = T - D * (dir < 0 ? -1 : 1);
   if (dir === 0 && Math.abs(F) <= mu * N) this.vf = 0;
   else {
@@ -108,11 +110,13 @@ Flight.prototype._ground = function (dt, c, wind) {
   }
   // direção pela bequilha / leme
   var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll * 0.6, -1, 1);
+  if (this.belly) steer = 0; else if (this.dmg.gear === 1) steer = clamp(steer + 0.2 * Math.min(1, av / 8), -1, 1);   // trem avariado puxa para um lado
   var yr = steer * 0.55 * (1 + 0.8 * brk / (1 + av / 6)) * Math.min(1, av / 5) / (1 + av / 22) * (this.vf < 0 ? -1 : 1);
   this.psi += yr * dt;
   // cauda sobe com a velocidade; profundor gira o avião
   var s = sstep(Va, 16, 30);
   var tgt = AC.thetaGround * (1 - s) + 1.5 * D2R * s + s * (c.pitch > 0 ? c.pitch * 7.5 : c.pitch * 3) * D2R;
+  if (this.belly) tgt = 1 * D2R;
   var rate = 10 * D2R * dt;
   this.theta += clamp(tgt - this.theta, -rate, rate);
   this.phi = 0;
@@ -122,7 +126,7 @@ Flight.prototype._ground = function (dt, c, wind) {
   this.vel.set(fx * this.vf, 0, fz * this.vf);
   this.V = Va; this.alpha = this.theta; this.beta = 0; this.nz = 1; this.sig = co.sig; this.gamma = 0; this.agl = 0;
   this.de = c.pitch; this.da = c.roll; this.dr = steer;
-  if (Va > 22 && this.rev < 0.05 && L * Math.cos(this.theta) + T * Math.sin(this.theta) > W) {
+  if (Va > 22 && !this.belly && this.rev < 0.05 && L * Math.cos(this.theta) + T * Math.sin(this.theta) > W) {
     this.onGround = false; this.vel.y = 0.6; this.pos.y += 0.03;
     this.p = this.q = this.r = 0; this.alphaTrim = this.theta; this.airTime = 0;
   }
@@ -137,7 +141,9 @@ Flight.prototype._air = function (dt, c, wind) {
   var alpha = Math.atan2(-vb.y, u), beta = Math.asin(clamp(vb.x / V, -1, 1));
   var qb = 0.5 * RHO * V * V, qS = qb * AC.S;
   var co = aeroCoef(alpha, this.flapPos, this.pow);
-  var L = qS * co.CL, D = qS * co.CD, Y = qS * AC.CYB * beta, T = thrust(V, this.pow) * (1 - 1.5 * this.rev);
+  var dg = this.dmg, nW = (dg.wingL ? 1 : 0) + (dg.wingR ? 1 : 0);
+  var L = qS * co.CL * (nW === 0 ? 1 : (nW === 1 ? 0.55 : 0.1)), D = qS * (co.CD + 0.03 * nW + (dg.engine ? 0.015 : 0)), Y = qS * AC.CYB * beta;
+  var T = dg.engine ? 0 : thrust(V, this.pow) * (1 - 1.5 * this.rev);
   var n = Math.sqrt(u * u + vb.y * vb.y) || 1;
   // força no corpo
   var Fb = this._b.set(Y - D * vb.x / V, L * u / n - D * vb.y / V, L * vb.y / n - D * vb.z / V - T);
@@ -163,16 +169,17 @@ Flight.prototype._air = function (dt, c, wind) {
   this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.6 : 1.5));
   var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
   var dr = clamp(0.45 * ped + (1 - Math.abs(ped)) * 4 * beta - 0.6 * this.r, -1, 1);
-  var eff = 1 - 0.6 * co.sig;
+  var eff = (1 - 0.6 * co.sig) * (nW ? 0.45 : 1);
+  if (dg.tail) dr = 0;
 
   var b2V = AC.b / (2 * V), c2V = AC.c / (2 * V);
-  var Cl = AC.CLDA * da * eff + AC.CLP * this.p * b2V + AC.CLB * beta + AC.CLR * this.r * b2V;
+  var Cl = AC.CLDA * da * eff + AC.CLP * this.p * b2V + AC.CLB * beta + AC.CLR * this.r * b2V + ((dg.wingR ? 1 : 0) - (dg.wingL ? 1 : 0)) * 0.09;
   if (co.sig > 0.25) {
     if (this.sig <= 0.25) this.dropSign = Math.random() < 0.5 ? -1 : 1;
     Cl += co.sig * 0.035 * this.dropSign;                       // queda de asa no estol
   }
   var Cm = AC.CMA * (alpha - this.alphaTrim) + AC.CMQ * this.q * c2V + AC.CMDE * de * eff;
-  var Cn = AC.CNB * beta + AC.CNR * this.r * b2V + AC.CNDR * dr + AC.CNDA * da;
+  var Cn = AC.CNB * (dg.tail ? 0.3 : 1) * beta + ((dg.wingL ? 1 : 0) - (dg.wingR ? 1 : 0)) * 0.012 + AC.CNR * this.r * b2V + AC.CNDR * dr + AC.CNDA * da;
   this.p += qS * AC.b * Cl / AC.Ixx * dt;
   this.q += qS * AC.c * Cm / AC.Iyy * dt;
   this.r += qS * AC.b * Cn / AC.Izz * dt;
@@ -192,26 +199,72 @@ Flight.prototype._air = function (dt, c, wind) {
   this.de = de; this.da = da; this.dr = dr;
 
   // ---- contato com o solo ----
-  var low = 1e9, which = -1, i, pt = this._c;
+  var low = 1e9, which = -1, i, pt = this._c, dm = this.dmg;
   var pts = [AC.gear[0], AC.gear[1], AC.gear[2], AC.tips[0], AC.tips[1], AC.nose];
-  for (i = 0; i < 6; i++) { var y = this.worldPoint(pts[i], pt).y; if (y < low) { low = y; which = i; } }
-  this.agl = low - this.groundY;
-  if (this.agl <= 0) {
-    var sink = -this.vel.y;
-    var fx = Math.sin(this.psi), fz = -Math.cos(this.psi);
-    var vfw = this.vel.x * fx + this.vel.z * fz;
-    var side = Math.abs(this.vel.x * fz - this.vel.z * fx);
-    if (which === 3 || which === 4 || Math.abs(this.phi) > 11 * D2R) this.crashed = 'Asa tocou o solo';
-    else if (which === 5 || this.theta < -4 * D2R) this.crashed = 'Hélice no solo';
-    else if (sink > 3.6) this.crashed = 'Pouso duro: ' + Math.round(sink * 196.85) + ' ft/min';
-    else if (side > 9) this.crashed = 'Tocou o solo derrapando';
-    else {
-      this.onGround = true; this.vf = Math.max(0, vfw);
-      this.theta = clamp(this.theta, -2 * D2R, AC.thetaGround); this.phi = 0;
-      this.p = this.q = this.r = 0; this._placeOnGround(); this._setQuat(); this.agl = 0;
-    }
-    if (this.crashed) { this.pos.y += -this.agl; this.vel.set(0, 0, 0); }
+  for (i = 0; i < 6; i++) {
+    if ((i === 3 && dm.wingL) || (i === 4 && dm.wingR) || (i < 3 && dm.gear === 2)) continue;
+    var y = this.worldPoint(pts[i], pt).y; if (y < low) { low = y; which = i; }
   }
+  if (dm.gear === 2 && this.pos.y - 0.85 < low) { low = this.pos.y - 0.85; which = 6; }      // sem trem: a barriga toca
+  this.agl = low - this.groundY;
+  if (this.agl <= 0) this._contact(which, -this.vel.y);
+};
+
+// ===== dano =====
+Flight.prototype._bounce = function (sink, e) { this.pos.y += -this.agl + 0.03; this.vel.y = Math.max(sink * e, 0.6); this.agl = 0.03; };
+Flight.prototype.destroy = function (why) {
+  if (this.crashed) return;
+  this.crashed = why; this.dmg.fire = true; this.dmg.engine = true;
+  if (this.agl < 0) this.pos.y -= this.agl;
+  this.vel.set(0, 0, 0); this.V = 0; this.vf = 0; this.events.push('destroyed');
+};
+Flight.prototype.tearWing = function (side) {
+  var k = side < 0 ? 'wingL' : 'wingR'; if (this.dmg[k]) return false;
+  this.dmg[k] = true; this.events.push(k); return true;
+};
+Flight.prototype.killEngine = function (fire) {
+  if (!this.dmg.engine) { this.dmg.engine = true; this.events.push('engine'); }
+  if (fire) this.dmg.fire = true;
+};
+Flight.prototype.loseGear = function () { if (this.dmg.gear !== 2) { this.dmg.gear = 2; this.events.push('gearCollapse'); } };
+Flight.prototype._slide = function () {                           // arrasta de barriga até parar
+  var fx = Math.sin(this.psi), fz = -Math.cos(this.psi);
+  this.onGround = true; this.belly = true; this.vf = Math.max(0, this.vel.x * fx + this.vel.z * fz);
+  this.theta = clamp(this.theta, -2 * D2R, 4 * D2R); this.phi = 0; this.p = this.q = this.r = 0;
+  this.loseGear(); this.killEngine(false); this._placeOnGround(); this._setQuat(); this.agl = 0; this.events.push('slide');
+};
+Flight.prototype._contact = function (which, sink) {
+  var d = this.dmg, sp = this.vel.length();
+  var fx = Math.sin(this.psi), fz = -Math.cos(this.psi), side = Math.abs(this.vel.x * fz - this.vel.z * fx);
+  this.lastSink = sink;
+  if (this.theta < -16 * D2R) return this.destroy('Bateu de nariz no solo');
+  if (Math.abs(this.phi) > 55 * D2R) return this.destroy('Entrou de asa no solo');
+  if (sink > 7) return this.destroy('Impacto violento com o solo');
+  if (which === 3 || which === 4 || Math.abs(this.phi) > 11 * D2R) {                // ponta de asa
+    var s = which === 3 ? -1 : (which === 4 ? 1 : (this.phi > 0 ? 1 : -1));
+    if (!this.tearWing(s)) { if (sp > 18) return this.destroy('Capotou'); return this._slide(); }
+    if (sp > 45 && sink > 3) return this.destroy('Asa no solo em alta velocidade: capotou');
+    this._bounce(sink, 0.3); this.p -= s * 0.9; this.r += s * 0.7; this.vel.x *= 0.9; this.vel.z *= 0.9; return;
+  }
+  if (which === 5 || this.theta < -4 * D2R) {                                       // hélice e nariz
+    this.killEngine(true);
+    if (sink > 4.5) return this.destroy('Bateu de nariz no solo');
+    this._bounce(sink, 0.25); this.q += 0.5; this.vel.x *= 0.85; this.vel.z *= 0.85; return;
+  }
+  if (d.gear === 2 || d.wingL || d.wingR) { if (sink > 4.5) return this.destroy('Impacto violento com o solo'); return this._slide(); }
+  if (sink > 4.8) { this.loseGear(); return this._slide(); }                         // trem cede
+  if (side > 9) { this.loseGear(); return this._slide(); }                           // tocou atravessado
+  if (sink > 3.4 || (d.gear === 1 && sink > 2.6)) {                                  // pouso duro
+    if (d.gear === 1) { this.loseGear(); return this._slide(); }
+    d.gear = 1; this.events.push('gearDamage'); this._bounce(sink, 0.35); this.q += 0.10; return;
+  }
+  if (sink > 1.9) {                                                                  // quique: o trem devolve parte da energia e levanta o nariz
+    this.events.push('bounce'); this._bounce(sink, 0.5); this.q += 0.04 + 0.07 * (sink - 1.9);
+    this.vel.x *= 0.985; this.vel.z *= 0.985; return;
+  }
+  this.onGround = true; this.vf = Math.max(0, this.vel.x * fx + this.vel.z * fz);
+  this.theta = clamp(this.theta, -2 * D2R, AC.thetaGround); this.phi = 0; this.p = this.q = this.r = 0;
+  this._placeOnGround(); this._setQuat(); this.agl = 0; this.events.push('touch');
 };
 
 if (typeof module !== 'undefined') module.exports = { Flight: Flight, AC: AC, aeroCoef: aeroCoef, thrust: thrust, D2R: D2R, MS2KT: MS2KT, M2FT: M2FT, RHO: RHO };

@@ -37,6 +37,8 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #i-spd{left:var(--sl)}
 #i-alt{right:calc(var(--sr) + 96px)}
 #h-cov{position:absolute;left:var(--sl);top:calc(var(--st) + 46px);font:700 12px var(--f-num);text-shadow:0 1px 3px #000,0 0 2px #000;white-space:pre}
+#h-dmg{position:absolute;left:var(--sl);top:calc(var(--st) + 64px);padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
+#h-dmg:empty{display:none}
 #lightbar{position:absolute;top:var(--st);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px}
 #lb-leds{display:flex;gap:3px;padding:6px 7px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
 #lb-leds i{width:8px;height:13px;border-radius:2px;background:rgba(238,243,234,.15)}
@@ -132,6 +134,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
   <div id="hud" class="hidden stick">
     <div class="inst" id="i-spd"><span class="lbl">VEL</span><b id="h-spd">0</b><span class="u">kt</span></div>
     <div id="h-cov"></div>
+    <div id="h-dmg"></div>
     <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div></div>
     <div class="inst" id="i-alt"><span class="lbl">ALT</span><b id="h-alt">0</b><span class="u">ft</span></div>
     <button class="btn" id="b-cam" type="button" aria-label="Trocar câmera">CAM</button>

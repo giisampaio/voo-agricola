@@ -239,6 +239,17 @@ function buildWorld(scene, aniso) {
   });
   var lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
   scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x1b1b1b })));
+  var lp0 = lp.slice();
+  W.cutWire = function (i) {                                   // cabo rompido cai no chão
+    var w = W.wires[i], a = lg.attributes.position; if (w.cut) return; w.cut = true;
+    a.setY(i * 4 + 1, 0.15); a.setY(i * 4 + 2, 0.15); a.needsUpdate = true;
+    M.makeTranslation((w.a.x + w.b.x) / 2, 0.32, w.a.z); ballM.setMatrixAt(i, M); ballM.instanceMatrix.needsUpdate = true;
+  };
+  W.resetWires = function () {
+    var a = lg.attributes.position; a.array.set(lp0); a.needsUpdate = true;
+    W.wires.forEach(function (w, i) { w.cut = false; M.makeTranslation((w.a.x + w.b.x) / 2, WH - 0.45, w.a.z); ballM.setMatrixAt(i, M); });
+    ballM.instanceMatrix.needsUpdate = true;
+  };
   scene.add(poleM); scene.add(armM); scene.add(ballM);
 
   // ---------- sede: hangar, silos, caminhão, biruta ----------
@@ -304,9 +315,9 @@ function buildAircraft() {
   A.canopy = add(loftBody([[0.05, 0.30, 0.10, 0.98], [0.45, 0.44, 0.50, 1.02], [1.25, 0.44, 0.56, 1.02], [2.0, 0.36, 0.34, 0.86], [2.9, 0.12, 0.08, 0.62]], 12, 0.7), std('#16222c', 0.12, 0.6));
   add(new THREE.BoxGeometry(0.5, 0.05, 1.5), yel, 0, 1.58, 0.95);
   // asas
-  var DIH = 3.5 * D2R; A.ail = []; A.flaps = [];
+  var DIH = 3.5 * D2R; A.ail = []; A.flaps = []; A.wings = []; A.gearParts = [];
   [-1, 1].forEach(function (s) {
-    var wg = new THREE.Group(); wg.position.set(0, -0.52, 0); wg.rotation.z = s * DIH; G_.add(wg);
+    var wg = new THREE.Group(); wg.position.set(0, -0.52, 0); wg.rotation.z = s * DIH; G_.add(wg); A.wings.push(wg);
     add(loftWing(s * 0.3, s * 7.55, 1.45, 1.45, -1.05, -1.05, 0, 0, 0.15), yel, 0, 0, 0, wg);
     add(loftWing(s * 7.55, s * 7.92, 1.45, 1.15, -1.05, -0.95, 0, 0.1, 0.13), blue, 0, 0, 0, wg);
     var surf = function (xa, xb, list) { var h = new THREE.Group(); h.position.set(s * (xa + xb) / 2, 0.03, 0.40); wg.add(h); add(new THREE.BoxGeometry(xb - xa - 0.04, 0.06, 0.38), yel, 0, 0, 0.19, h); list.push(h); };
@@ -315,6 +326,7 @@ function buildAircraft() {
     var leg = add(new THREE.BoxGeometry(0.1, 1.42, 0.34), yel, s * 0.96, -1.06, -1.3); leg.rotation.z = s * 0.72;
     var wh = add(new THREE.CylinderGeometry(0.37, 0.37, 0.28, 16), tire, s * 1.45, -1.53, -1.3); wh.rotation.z = Math.PI / 2;
     var hub = add(new THREE.CylinderGeometry(0.16, 0.16, 0.3, 10), metal, s * 1.45, -1.53, -1.3); hub.rotation.z = Math.PI / 2;
+    A.gearParts.push(leg, wh, hub);
     // estabilizador
     add(loftWing(s * 0.1, s * 2.65, 1.0, 0.85, 3.55, 3.6, 0.28, 0.28, 0.10), yel);
   });
@@ -362,6 +374,35 @@ function makeSpray(scene) {
         al[k] = Math.max(0, life[k]);
       }
       g.attributes.position.needsUpdate = true; g.attributes.aA.needsUpdate = true;
+    },
+    clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; }
+  };
+}
+
+// ===================== fogo e fumaça =====================
+function makePuffs(scene, N, o) {
+  var pos = new Float32Array(N * 3), al = new Float32Array(N), sz = new Float32Array(N), vel = new Float32Array(N * 3), life = new Float32Array(N), span = new Float32Array(N), s0 = new Float32Array(N), s1 = new Float32Array(N), head = 0;
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('aA', new THREE.BufferAttribute(al, 1)); g.setAttribute('aS', new THREE.BufferAttribute(sz, 1));
+  var mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: o.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    uniforms: { uScale: { value: 600 }, c0: { value: new THREE.Color(o.c0) }, c1: { value: new THREE.Color(o.c1) }, uA: { value: o.alpha } },
+    vertexShader: 'attribute float aA; attribute float aS; varying float vA; uniform float uScale; void main(){ vA = aA; vec4 mv = modelViewMatrix*vec4(position,1.0); gl_PointSize = min(256.0, aS*uScale/max(1.0,-mv.z)); gl_Position = projectionMatrix*mv; }',
+    fragmentShader: 'precision mediump float; varying float vA; uniform vec3 c0; uniform vec3 c1; uniform float uA; void main(){ float d = length(gl_PointCoord-0.5); if (d>0.5 || vA<=0.0) discard; float f = min(1.0, vA*2.5)*min(1.0,(1.0-vA)*8.0+0.25); gl_FragColor = vec4(mix(c1, c0, vA), uA*f*(1.0-d*2.0)); }'
+  });
+  var pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = o.additive ? 22 : 21; scene.add(pts);
+  return {
+    mat: mat,
+    emit: function (x, y, z, vx, vy, vz, sec, a, b) { var k = head; head = (head + 1) % N; pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z; vel[k * 3] = vx; vel[k * 3 + 1] = vy; vel[k * 3 + 2] = vz; life[k] = 1; span[k] = sec; s0[k] = a; s1[k] = b; },
+    update: function (dt) {
+      var dmp = Math.max(0, 1 - o.drag * dt);
+      for (var k = 0; k < N; k++) {
+        if (life[k] <= 0) { al[k] = 0; continue; }
+        life[k] -= dt / span[k]; vel[k * 3] *= dmp; vel[k * 3 + 2] *= dmp; vel[k * 3 + 1] += (o.rise - vel[k * 3 + 1]) * Math.min(1, dt * 1.5);
+        pos[k * 3] += vel[k * 3] * dt; pos[k * 3 + 1] += vel[k * 3 + 1] * dt; pos[k * 3 + 2] += vel[k * 3 + 2] * dt;
+        if (pos[k * 3 + 1] < 0.1) pos[k * 3 + 1] = 0.1;
+        al[k] = Math.max(0, life[k]); sz[k] = s0[k] + (s1[k] - s0[k]) * (1 - al[k]);
+      }
+      g.attributes.position.needsUpdate = true; g.attributes.aA.needsUpdate = true; g.attributes.aS.needsUpdate = true;
     },
     clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; }
   };

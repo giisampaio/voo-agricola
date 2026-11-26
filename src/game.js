@@ -14,6 +14,9 @@
   var world = buildWorld(scene, Math.min(8, renderer.capabilities.getMaxAnisotropy()));
   var plane = buildAircraft(); scene.add(plane.group);
   var spray = makeSpray(scene);
+  var fire = makePuffs(scene, 500, { additive: true, c0: '#ffe9a0', c1: '#ff4a0a', alpha: 0.85, drag: 2.5, rise: 5 });
+  var smoke = makePuffs(scene, 700, { additive: false, c0: '#141312', c1: '#5c5a57', alpha: 0.6, drag: 1.2, rise: 2.2 });
+  var debris = [], wreckT = 0;
   var flight = new Flight();
 
   // ---------- estado ----------
@@ -35,7 +38,7 @@
     stage.style.width = SW + 'px'; stage.style.height = SH + 'px'; stage.classList.toggle('rot', rotated);
     stage.classList.toggle('short', SH < 330); stage.classList.toggle('narrow', SW < 720);
     renderer.setSize(SW, SH, false); camera.aspect = SW / SH; camera.updateProjectionMatrix();
-    spray.mat.uniforms.uScale.value = SH * PR / (2 * Math.tan(camera.fov * D2R / 2));
+    spray.mat.uniforms.uScale.value = fire.mat.uniforms.uScale.value = smoke.mat.uniforms.uScale.value = SH * PR / (2 * Math.tan(camera.fov * D2R / 2));
   }
   window.addEventListener('resize', layout); window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
   function stagePt(e) { return rotated ? { x: e.clientY, y: window.innerWidth - e.clientX } : { x: e.clientX, y: e.clientY }; }
@@ -82,6 +85,7 @@
 
   // ---------- entradas na tela ----------
   var joy = { x: 0, y: 0, id: null }, keys = {}, kStick = { x: 0, y: 0 };
+  var thrHeld = function () { return false; };
   var P0 = 0.2, lever = P0, reverse = 0, brake = 0, rud = { bar: 0, id: null, l: 0, r: 0, val: 0 };
   function expo(x) { var d = 0.04, a = Math.abs(x); if (a < d) return 0; a = (a - d) / (1 - d); return (x < 0 ? -1 : 1) * Math.pow(Math.min(a, 1), 1.35); }
   // manete: batente de marcha lenta em 20% do curso; abaixo dele é reverso, liberado só no solo
@@ -96,11 +100,11 @@
   function paintFlap() { var k = $('flap-knob'); k.style.top = (flight.flap * 50) + '%'; k.textContent = flight.flap; $('flap').setAttribute('aria-valuenow', flight.flap); }
   function setBrake(on) { brake = on ? 1 : 0; $('b-brake').classList.toggle('on', !!on); }
   (function () {
-    var el = $('thr'), id = null;
+    var el = $('thr'), id = null; thrHeld = function () { return id !== null; };
     var mv = function (e) { var r = stageRect($('thr-track')), p = stagePt(e); setLever(1 - (p.y - r.y) / r.h); };
     el.addEventListener('pointerdown', function (e) { id = e.pointerId; try { el.setPointerCapture(id); } catch (x) { } mv(e); e.preventDefault(); });
     el.addEventListener('pointermove', function (e) { if (e.pointerId === id) mv(e); });
-    var up = function (e) { if (e.pointerId === id) id = null; }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    var up = function (e) { if (e.pointerId === id) { id = null; if (reverse > 0) setLever(P0); } }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
     // alavanca de flape: arrasta ou toca na posição
     var fl = $('flap'), fid = null, fm = function (e) { var r = stageRect($('flap-track')), p = stagePt(e); setFlap(Math.round(clamp((p.y - r.y) / r.h, 0, 1) * 2)); };
     fl.addEventListener('pointerdown', function (e) { fid = e.pointerId; try { fl.setPointerCapture(fid); } catch (x) { } fm(e); e.preventDefault(); });
@@ -138,7 +142,7 @@
 
   function readInput(dt) {
     if (keys.KeyW || keys.PageUp) setLever(lever + dt * 0.6); if (keys.KeyS || keys.PageDown) setLever(lever - dt * 0.6);
-    if (!flight.onGround && reverse > 0) setLever(P0);
+    if (reverse > 0 && (!flight.onGround || (!thrHeld() && !keys.KeyS && !keys.PageDown))) setLever(P0);       // reverso com mola: solta e volta ao batente
     var rt = clamp(rud.bar + rud.r - rud.l + (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0), -1, 1);
     rud.val += (rt - rud.val) * Math.min(1, dt * 7);
     $('rud-knob').style.transform = 'translateX(' + (rud.val * 100) + '%)';
@@ -173,7 +177,7 @@
   function updateAudio(active, dt) {
     if (!au) return;
     au.update({ on: active && opt.sound, pow: flight.pow, V: flight.V, vf: flight.vf, onGround: flight.onGround, spraying: spraying && flight.hopper > 0,
-      stall: !flight.onGround && flight.alpha > AC.aWarn, cockpit: camMode === 1, dt: dt });
+      stall: !flight.onGround && !flight.crashed && flight.alpha > AC.aWarn, cockpit: camMode === 1, dt: dt, engineOut: flight.dmg.engine, fire: flight.dmg.fire });
   }
 
   // ---------- HUD ----------
@@ -210,8 +214,11 @@
     $('h-tq').textContent = Math.round(flight.pow * 100); $('h-g').textContent = fmt(flight.nz, 1);
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
     $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join('  ');
+    var dm = flight.dmg, dl = []; if (dm.gear === 1) dl.push('TREM AVARIADO'); if (dm.gear === 2) dl.push('SEM TREM'); if (dm.wingL) dl.push('ASA E'); if (dm.wingR) dl.push('ASA D'); if (dm.engine) dl.push('MOTOR'); if (dm.fire) dl.push('FOGO'); if (dm.tail) dl.push('CAUDA');
+    $('h-dmg').textContent = dl.join(' · ');
     var w = '', wc2 = '';
-    if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; }
+    if (dm.fire) { w = 'FOGO NO MOTOR'; wc2 = 'bad'; }
+    else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; }
     else if (spraying && flight.agl > 7) { w = 'ALTO DEMAIS · DERIVA'; wc2 = 'warn'; }
     else if (!flight.onGround && flight.agl < 2.2 && flight.vel.y < -0.5) { w = 'SOLO'; wc2 = 'bad'; }
     $('warn').textContent = w; $('warn').className = wc2;
@@ -220,7 +227,9 @@
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    flight.reset(START); resetFields(); spray.clear(); setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
+    flight.reset(START); resetFields(); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
+    debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
+    setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
@@ -243,13 +252,19 @@
     FIELDS.forEach(function (f) { tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
     var cp = cov / tot * 100, op = ov / tot * 100, wp = stats.applied > 0 ? stats.waste / stats.applied * 100 : 0;
     var onRwy = Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL;
-    var score = clamp(Math.round(cp - 0.5 * op - 0.3 * wp + (crash ? -30 : (onRwy && flight.onGround ? 5 : 0))), 0, 100);
-    $('end-title').textContent = crash ? 'Acidente' : 'Missão encerrada';
-    $('end-sub').textContent = crash ? crash : (!flight.onGround ? 'Encerrada em voo.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'));
+    var dm = flight.dmg, dl = [], pen = 0;
+    if (dm.gear === 1) { dl.push('trem de pouso avariado'); pen += 10; } if (dm.gear === 2) { dl.push('trem de pouso perdido'); pen += 20; }
+    if (dm.wingL) { dl.push('asa esquerda arrancada'); pen += 25; } if (dm.wingR) { dl.push('asa direita arrancada'); pen += 25; }
+    if (dm.engine) { dl.push(dm.fire ? 'motor destruído e em chamas' : 'motor parado por toque de hélice'); pen += 20; } if (dm.tail) { dl.push('cauda atingida'); pen += 10; }
+    pen = crash ? 40 : Math.min(40, pen); var bad = !!crash || dm.gear === 2 || dm.wingL || dm.wingR || dm.engine;
+    var dtxt = dl.length ? dl.join(', ') : ''; if (dtxt) dtxt = dtxt.charAt(0).toUpperCase() + dtxt.slice(1) + '.';
+    var score = clamp(Math.round(cp - 0.5 * op - 0.3 * wp - pen + (!bad && onRwy && flight.onGround ? 5 : 0)), 0, 100);
+    $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : 'Missão encerrada');
+    $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
     $('end-body').innerHTML = '<table><thead><tr><th></th><th>Cobertura</th><th>Sobreposição</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<p>Produto aplicado: <b>' + Math.round(stats.applied) + ' L</b> · perdido fora do alvo ou por deriva: <b>' + Math.round(stats.waste) + ' L</b> · tempo: <b>' + Math.floor(stats.time / 60) + ' min ' + Math.round(stats.time % 60) + ' s</b></p>';
     $('end-score').textContent = score;
-    $('end').classList.toggle('crash', !!crash); show('end', true);
+    $('end').classList.toggle('crash', bad); show('end', true);
   }
   tap('m-tilt', function () {
     initAudio(); $('menu-note').textContent = 'Verificando o sensor…';
@@ -277,25 +292,68 @@
   optBtn('o-snd', 'Som', ['desligado', 'ligado'], function () { return opt.sound ? 1 : 0; }, function (v) { opt.sound = !!v; if (v) initAudio(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) pause(true); });
 
-  // ---------- colisões ----------
+  // ---------- colisões e dano ----------
   var segs = [[[-7.9, -0.3, -0.3], [7.9, -0.3, -0.3]], [[0, 0, -5.2], [0, 0.2, 4.9]], [[0, 0.3, 4.2], [0, 2.1, 4.6]], [[0, -1.9, -1.3], [0, 0, -1.3]]];
   function hitWires() {
-    if (flight.pos.y > 14 || flight.pos.x < 285 || flight.pos.x > 855 || Math.abs(flight.pos.z + 500) > 14) return false;
+    if (flight.pos.y > 14 || flight.pos.x < 285 || flight.pos.x > 855 || Math.abs(flight.pos.z + 500) > 14) return;
+    var dm = flight.dmg;
     for (var s = 0; s < segs.length; s++) {
+      if (s === 3 && dm.gear === 2) continue;
       flight.worldPoint(segs[s][0], v1); flight.worldPoint(segs[s][1], v2);
-      for (var i = 0; i < world.wires.length; i++) if (segSegDist2(v1, v2, world.wires[i].a, world.wires[i].b) < 0.2) return true;
+      if (s === 0) { if (dm.wingL) v1.copy(flight.pos); if (dm.wingR) v2.copy(flight.pos); if (dm.wingL && dm.wingR) continue; }
+      for (var i = 0; i < world.wires.length; i++) {
+        var w = world.wires[i]; if (w.cut || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
+        world.cutWire(i); sfx('tear');
+        if (s === 0) { v3.set(1, 0, 0).applyQuaternion(flight.quat); var sd = ((w.a.z - flight.pos.z) * v3.z + (w.a.y - flight.pos.y) * v3.y) > 0 ? 1 : -1; if (flight.tearWing(sd)) { flight.r += sd * 0.6; } }
+        else if (s === 1) { flight.killEngine(true); }
+        else if (s === 2) { if (!dm.tail) { dm.tail = true; flight.events.push('tail'); } }
+        else { flight.loseGear(); flight.q -= 0.35; }
+        flight.vel.multiplyScalar(0.9); say('Atingiu a rede elétrica.', 4);
+      }
     }
-    return false;
   }
   var cpts = [[-7.8, -0.2, 0], [-4, -0.4, 0], [0, 0, -4.5], [0, 0, 0], [4, -0.4, 0], [7.8, -0.2, 0], [0, 0.5, 4.5]];
   function hitObjects() {
-    if (flight.pos.y > 24) return null;
+    if (flight.pos.y > 24) return;
+    var dm = flight.dmg;
     for (var k = 0; k < cpts.length; k++) {
+      var ws = k < 2 ? -1 : (k === 4 || k === 5 ? 1 : 0);
+      if ((ws < 0 && dm.wingL) || (ws > 0 && dm.wingR)) continue;
       var p = flight.worldPoint(cpts[k], v1), i, t, b;
-      for (i = 0; i < world.trees.length; i++) { t = world.trees[i]; if (p.y < t.h) { var dx = p.x - t.x, dz = p.z - t.z, r = t.pole ? t.r : t.r * 0.85; if (dx * dx + dz * dz < r * r) return t.pole ? 'Colidiu com uma estrutura' : 'Colidiu com as árvores'; } }
-      for (i = 0; i < world.boxes.length; i++) { b = world.boxes[i]; if (p.y < b.h && p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1) return 'Colidiu com uma construção'; }
+      for (i = 0; i < world.trees.length; i++) {
+        t = world.trees[i]; if (p.y >= t.h) continue;
+        var dx = p.x - t.x, dz = p.z - t.z, r = t.pole ? t.r : t.r * 0.85; if (dx * dx + dz * dz >= r * r) continue;
+        if (ws) { if (flight.tearWing(ws)) { flight.r += ws * 0.8; flight.vel.multiplyScalar(k === 0 || k === 5 ? 0.9 : 0.8); } break; }       // asa bate: arranca a asa
+        if (k === 6) { if (!dm.tail) { dm.tail = true; flight.events.push('tail'); } break; }
+        flight.destroy(t.pole ? 'Colidiu com uma estrutura' : 'Colidiu de frente com as árvores'); return;
+      }
+      for (i = 0; i < world.boxes.length; i++) { b = world.boxes[i]; if (p.y < b.h && p.x > b.x0 && p.x < b.x1 && p.z > b.z0 && p.z < b.z1) { flight.destroy('Colidiu com uma construção'); return; } }
     }
-    return null;
+  }
+  function detachWing(side) {
+    var wg = plane.wings[side < 0 ? 0 : 1]; if (!wg.visible) return;
+    plane.group.updateMatrixWorld(true);
+    var o = wg.clone(); wg.getWorldPosition(o.position); wg.getWorldQuaternion(o.quaternion); scene.add(o); wg.visible = false;
+    debris.push({ o: o, v: flight.vel.clone().multiplyScalar(0.75).add(v4.set(0, 3, 0)), w: new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3, side * (2 + Math.random() * 3)), rest: false });
+  }
+  function boom(n) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * 6.283, sp = 3 + Math.random() * 11, px = flight.pos.x + (Math.random() - 0.5) * 4, pz = flight.pos.z + (Math.random() - 0.5) * 4;
+      fire.emit(px, flight.pos.y + Math.random() * 2, pz, Math.cos(a) * sp, 2 + Math.random() * 10, Math.sin(a) * sp, 0.5 + Math.random() * 0.7, 3.5, 1);
+      if (i % 2 === 0) smoke.emit(px, flight.pos.y + 1, pz, Math.cos(a) * sp * 0.5, 3 + Math.random() * 5, Math.sin(a) * sp * 0.5, 2.5 + Math.random() * 2, 3, 11);
+    }
+  }
+  function onEvent(ev) {
+    var dm = flight.dmg;
+    if (ev === 'touch') sfx('touch', flight.lastSink);
+    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); say('Quicou. Segure a atitude e deixe o avião assentar.', 3); }
+    else if (ev === 'gearDamage') { sfx('crunch'); say('Pouso duro: trem de pouso avariado. O próximo toque forte derruba o trem.', 6); }
+    else if (ev === 'gearCollapse') { sfx('crunch'); plane.gearParts.forEach(function (m) { m.visible = false; }); say('O trem de pouso cedeu.', 5); }
+    else if (ev === 'slide') { sfx('crunch'); toggleSpray(false); }
+    else if (ev === 'wingL' || ev === 'wingR') { sfx('tear'); detachWing(ev === 'wingL' ? -1 : 1); say(ev === 'wingL' ? 'Asa esquerda arrancada.' : 'Asa direita arrancada.', 5); }
+    else if (ev === 'engine') { sfx('bang'); if (reverse > 0 || throttle > 0) { /* manete continua onde está; o motor não responde */ } say(dm.fire ? 'Motor destruído e em chamas.' : 'Hélice tocou o solo: motor parado.', 5); }
+    else if (ev === 'tail') { sfx('tear'); say('Cauda atingida: sem leme.', 5); }
+    else if (ev === 'destroyed') { sfx('crash'); toggleSpray(false); boom(110); }
   }
 
   // ---------- simulação por quadro ----------
@@ -305,11 +363,12 @@
     simT += dt; stats.time += flight.hasFlown || !flight.onGround ? dt : 0;
     windNow.set(wind.x + Math.sin(simT * 0.7) * 0.5 + Math.sin(simT * 2.3) * 0.25, 0, wind.z + Math.cos(simT * 0.9) * 0.5 + Math.sin(simT * 3.1) * 0.25);
     acc += dt; var n = 0;
-    while (acc >= H && n < 8) { flight.step(H, ctl, windNow); if (!flight.crashed && !flight.onGround && hitWires()) flight.crashed = 'Colidiu com a rede elétrica'; acc -= H; n++; }
+    while (acc >= H && n < 8) { flight.step(H, ctl, windNow); if (!flight.crashed && !flight.onGround) hitWires(); acc -= H; n++; }
     if (n === 8) acc = 0;
-    if (flight.onGround !== wasGround) { sfx(flight.onGround ? 'touch' : 'lift', sinkWas); wasGround = flight.onGround; }
-    sinkWas = -flight.vel.y;
-    if (!flight.crashed && !flight.onGround) { var hit = hitObjects(); if (hit) flight.crashed = hit; }
+    if (!flight.crashed && (!flight.onGround || Math.abs(flight.vf) > 3)) hitObjects();
+    while (flight.events.length) onEvent(flight.events.shift());
+    if (flight.onGround !== wasGround) { if (!flight.onGround) sfx('lift'); wasGround = flight.onGround; }
+    if (flight.crashed) { wreckT += dt; if (wreckT > 3.2) finish(flight.crashed); return; }
     // aplicação
     if (spraying && flight.hopper > 0) {
       var gs = Math.sqrt(flight.vel.x * flight.vel.x + flight.vel.z * flight.vel.z);
@@ -329,15 +388,28 @@
     // dicas
     if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
     if (!hint.done && FIELDS.every(function (f) { return f.cov / f.grid.length > 0.95; })) { hint.done = true; say('Talhões concluídos. Volte para a pista e pouse.', 7); }
-    if (flight.crashed) { sfx('crash'); finish(flight.crashed); return; }
-    if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && lever === P0) { stopT += dt; if (stopT > 1.2) finish(null); } else stopT = 0;
+    if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
   // ---------- câmera e visual ----------
   var camPos = new THREE.Vector3(), camHead = new THREE.Vector3(0, 0, -1), camSnap = true, flapVis = 0, menuA = 0.6;
   function updateVisual(dt) {
     var g = plane.group; g.position.copy(flight.pos); g.quaternion.copy(flight.quat);
-    plane.prop.rotation.z -= (6 + flight.pow * 40) * dt; plane.prop.material.opacity = 0.55 - flight.pow * 0.3; plane.blur.material.opacity = 0.06 + flight.pow * 0.12;
+    if (flight.dmg.engine) { plane.prop.material.opacity = 0.95; plane.blur.material.opacity = 0; }
+    else { plane.prop.rotation.z -= (6 + flight.pow * 40) * dt; plane.prop.material.opacity = 0.55 - flight.pow * 0.3; plane.blur.material.opacity = 0.06 + flight.pow * 0.12; }
+    // fogo e fumaça saem do nariz; no destroço, de toda a fuselagem
+    if (flight.dmg.fire && state !== 'menu' && state !== 'calib' && state !== 'pause') {
+      var wreck = !!flight.crashed, nf = wreck ? 6 : 3;
+      for (var fi = 0; fi < nf; fi++) {
+        v1.set((Math.random() - 0.5) * (wreck ? 5 : 0.8), 0.2 + Math.random() * 0.5, wreck ? (Math.random() - 0.5) * 7 : -3.6 + Math.random()).applyQuaternion(flight.quat).add(flight.pos);
+        fire.emit(v1.x, v1.y, v1.z, flight.vel.x * 0.5 + (Math.random() - 0.5) * 2, 1 + Math.random() * 3, flight.vel.z * 0.5 + (Math.random() - 0.5) * 2, 0.35 + Math.random() * 0.35, wreck ? 2.6 : 1.5, 0.4);
+        if (fi % 2 === 0) smoke.emit(v1.x, v1.y + 0.4, v1.z, flight.vel.x * 0.25 + (Math.random() - 0.5) * 1.5, 1.5, flight.vel.z * 0.25 + (Math.random() - 0.5) * 1.5, 2.5 + Math.random() * 2, 1.4, wreck ? 9 : 6);
+      }
+    }
+    if (state !== 'pause') { fire.update(dt); smoke.update(dt);
+      debris.forEach(function (d) { if (d.rest) return; d.v.y -= 9.81 * dt; d.v.multiplyScalar(Math.max(0, 1 - 0.5 * dt)); d.o.position.addScaledVector(d.v, dt);
+        d.o.rotateX(d.w.x * dt); d.o.rotateY(d.w.y * dt); d.o.rotateZ(d.w.z * dt);
+        if (d.o.position.y < 0.5) { d.o.position.y = 0.5; if (Math.abs(d.v.y) < 2.5 && d.v.lengthSq() < 30) d.rest = true; else { d.v.y = Math.abs(d.v.y) * 0.3; d.v.x *= 0.6; d.v.z *= 0.6; d.w.multiplyScalar(0.5); } } }); }
     flapVis = flight.flapPos <= 1 ? flight.flapPos * 0.2 : 0.2 + (flight.flapPos - 1) * 0.25;
     plane.flaps[0].rotation.x = plane.flaps[1].rotation.x = flapVis;
     plane.ail[0].rotation.x = flight.da * 0.3; plane.ail[1].rotation.x = -flight.da * 0.3;       // esquerda desce para rolar à direita
@@ -348,6 +420,9 @@
     world.sun.position.copy(flight.pos).addScaledVector(SUN, 80); world.sun.target.position.copy(flight.pos); world.sun.target.updateMatrixWorld();
     if (state === 'menu' || state === 'calib') {
       menuA += dt * 0.12; camera.position.set(flight.pos.x + Math.sin(menuA) * 19, 4.2, flight.pos.z + Math.cos(menuA) * 19); camera.up.set(0, 1, 0); camera.lookAt(flight.pos.x, flight.pos.y + 0.6, flight.pos.z);
+    } else if (flight.crashed) {                                   // destroço: câmera gira em volta
+      menuA += dt * 0.22; v2.set(flight.pos.x + Math.sin(menuA) * 26, Math.max(flight.pos.y + 7, 7), flight.pos.z + Math.cos(menuA) * 26);
+      camPos.lerp(v2, 1 - Math.exp(-dt * 2.5)); camera.position.copy(camPos); camera.up.set(0, 1, 0); camera.lookAt(flight.pos.x, flight.pos.y + 1.5, flight.pos.z);
     } else if (camMode === 1) {
       camera.position.set(0, 1.28, 1.15).applyQuaternion(flight.quat).add(flight.pos);
       camera.quaternion.copy(flight.quat).multiply(q1.setFromAxisAngle(v1.set(1, 0, 0), -5 * D2R));
@@ -378,5 +453,5 @@
     requestAnimationFrame(frame);
   }
   layout(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, setFlap: setFlap, rud: rud, opt: opt, fields: FIELDS, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, setFlap: setFlap, rud: rud, opt: opt, fields: FIELDS, stats: stats };
 })();
