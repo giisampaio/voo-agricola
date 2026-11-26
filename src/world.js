@@ -257,10 +257,40 @@ function buildWorld(scene, aniso) {
     var m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, z1 - z0), flatMat(hex)); m.position.set((x0 + x1) / 2, (y0 || 0) + h / 2, (z0 + z1) / 2); scene.add(m);
     if (!y0) W.boxes.push({ x0: x0, x1: x1, z0: z0, z1: z1, h: h }); return m;
   };
-  box(44, 66, 362, 392, 6, '#d9dcd6');
-  var roof = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 30, 24), flatMat('#9aa3a6')); roof.rotation.x = Math.PI / 2; roof.scale.set(1, 1, 0.42); roof.position.set(55, 6, 377); scene.add(roof);
-  W.boxes.push({ x0: 44, x1: 66, z0: 362, z1: 392, h: 10.8 });
-  box(43.8, 44.1, 366, 388, 5, '#3b4347', 0.01);
+  // hangar de duas águas, frente (oitão) virada para a pista, com a marca na fachada e no telhado
+  var HX0 = 42, HX1 = 68, HZ0 = 357, HZ1 = 391, HWL = 7, HRD = 10.6, hzc = (HZ0 + HZ1) / 2, hxc = (HX0 + HX1) / 2, hl = HZ1 - HZ0, hd = HX1 - HX0, DW = 22, DH = 5.8;
+  var corr = function (base, line, n) { var t = canvasTex(256, 64, function (g, w, h) { g.fillStyle = base; g.fillRect(0, 0, w, h); for (var i = 0; i < 32; i++) { g.fillStyle = line; g.globalAlpha = 0.28; g.fillRect(i * 8, 0, 2, h); g.globalAlpha = 0.12; g.fillStyle = '#ffffff'; g.fillRect(i * 8 + 4, 0, 2, h); } g.globalAlpha = 1; }, aniso); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(n, 1); return t; };
+  var wallM = new THREE.MeshLambertMaterial({ map: corr('#e4e7e2', '#8d958f', 5), side: THREE.DoubleSide }), roofM = new THREE.MeshLambertMaterial({ map: corr('#b3bcbe', '#69757a', 7) });
+  var hbox = function (sx, sy, sz, x, y, z, m) { var o = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m || wallM); o.position.set(x, y, z); scene.add(o); return o; };
+  hbox(0.3, HWL, hl, HX1 - 0.15, HWL / 2, hzc); hbox(hd, HWL, 0.3, hxc, HWL / 2, HZ0 + 0.15); hbox(hd, HWL, 0.3, hxc, HWL / 2, HZ1 - 0.15);
+  var pil = (hl - DW) / 2; hbox(0.3, HWL, pil, HX0 + 0.15, HWL / 2, HZ0 + pil / 2); hbox(0.3, HWL, pil, HX0 + 0.15, HWL / 2, HZ1 - pil / 2); hbox(0.3, HWL - DH, DW, HX0 + 0.15, DH + (HWL - DH) / 2, hzc);
+  [HX0 + 0.15, HX1 - 0.15].forEach(function (gx) { var gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute([gx, HWL, HZ0, gx, HWL, HZ1, gx, HRD, hzc], 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 1], 2)); gg.setIndex([0, 1, 2]); gg.computeVertexNormals(); scene.add(new THREE.Mesh(gg, wallM)); });
+  var rAng = Math.atan2(HRD - HWL, hl / 2), rLen = Math.sqrt(Math.pow(hl / 2 + 1, 2) + Math.pow((HRD - HWL) * (hl / 2 + 1) / (hl / 2), 2));
+  [1, -1].forEach(function (sd) { var r = hbox(hd + 2, 0.16, rLen, hxc, (HWL + HRD) / 2 + 0.12 - (HRD - HWL) / hl, hzc + sd * (hl / 4 + 0.5), roofM); r.rotation.x = sd * rAng; });
+  hbox(hd + 2.2, 0.3, 0.5, hxc, HRD + 0.15, hzc, flatMat('#7d888c'));
+  hbox(hd - 0.6, 0.05, hl - 0.6, hxc, 0.04, hzc, flatMat('#4a4d4b'));                          // piso
+  decal(quadXZ(12, HZ1 + 5, HX0, HZ1 + 5, HX0, HZ0 - 5, 12, HZ0 - 5, 0.025), flatMat('#b4b1a6'), 1);   // pátio de concreto até a pista
+  var shq = function (x0, x1, z0, z1) { var m = new THREE.Mesh(quadXZ(x0, z1, x1, z1, x1, z0, x0, z0, 0.045), new THREE.MeshBasicMaterial({ color: 0x0c1408, transparent: true, opacity: 0.36, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -8 })); m.renderOrder = 4; scene.add(m); };
+  var sdx = -SUN.x / SUN.y * HWL * 1.15, sdz = -SUN.z / SUN.y * HWL * 1.15; shq(HX0 + sdx, HX0, HZ0 + sdz, HZ1 + sdz); shq(HX0, HX1 + sdx, HZ1, HZ1 + sdz);
+  W.boxes.push({ x0: HX0, x1: HX1, z0: HZ0, z1: HZ1, h: HRD });
+  // placa: marca em cima, SAPEZAL - MT embaixo
+  var signCv = document.createElement('canvas'); signCv.width = 1024; signCv.height = 320;
+  var signTex = new THREE.CanvasTexture(signCv); signTex.encoding = THREE.sRGBEncoding; signTex.anisotropy = aniso;
+  var paintSign = function (img) {
+    var g = signCv.getContext('2d'); g.fillStyle = '#f6f7f4'; g.fillRect(0, 0, 1024, 320); g.strokeStyle = '#2f3838'; g.lineWidth = 8; g.strokeRect(4, 4, 1016, 312);
+    if (img) { var lw = 860, lh = lw / LOGO_ASPECT; g.drawImage(img, (1024 - lw) / 2, 34, lw, lh); }
+    g.fillStyle = '#2f3838'; g.font = '700 78px Arial, Helvetica, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    var txt = 'SAPEZAL - MT', sp = 14, tw = 0, i; for (i = 0; i < txt.length; i++) tw += g.measureText(txt[i]).width + sp; var x = (1024 - tw + sp) / 2; g.textAlign = 'left';
+    for (i = 0; i < txt.length; i++) { g.fillText(txt[i], x, 252); x += g.measureText(txt[i]).width + sp; }
+    signTex.needsUpdate = true;
+  };
+  paintSign(null); var limg = new Image(); limg.onload = function () { paintSign(limg); }; limg.src = LOGO_URI;
+  var signM = new THREE.MeshLambertMaterial({ map: signTex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+  var fs_ = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 3.0), signM); fs_.rotation.y = -Math.PI / 2; fs_.position.set(HX0 - 0.06, 7.75, hzc); scene.add(fs_);
+  [0, Math.PI].forEach(function (ry) {                                                           // nas duas águas do telhado, legível de quem vem voando
+    var gr = new THREE.Group(); gr.position.set(hxc, 0, hzc); gr.rotation.y = ry; scene.add(gr);
+    var rs = new THREE.Mesh(new THREE.PlaneGeometry(20, 6.25), signM); rs.rotation.x = -Math.PI / 2 + rAng; rs.position.set(0, (HWL + HRD) / 2 + 0.34, hl / 4); gr.add(rs);
+  });
   box(104, 118, 424, 436, 3.6, '#e8dcc2'); box(103, 119, 423, 437, 0.5, '#9b4a34', 3.6);
   box(24, 27, 398, 406, 2.6, '#f4f4f0'); box(24.2, 26.8, 406, 409, 2.2, '#2f6fb4');
   [[88, 338], [98, 338]].forEach(function (p) {
@@ -295,6 +325,16 @@ function loftWing(x0, x1, c0, c1, z0, z1, y0, y1, t) {
   for (i = 1; i < L - 1; i++) { idx.push(L, L + i, L + i + 1); idx.push(0, i, i + 1); }
   var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
+// decalque que acompanha a curvatura do extradorso; xa é a borda esquerda da imagem, xb a direita (vista de trás)
+function wingDecal(xa, xb) {
+  var n = 8, pos = [], uv = [], idx = [], c = 1.45, t = 0.15, i;
+  for (i = 0; i <= n; i++) {
+    var x = 0.20 + (0.82 - 0.20) * i / n, yt = 5 * t * (0.2969 * Math.sqrt(x) - 0.126 * x - 0.3516 * x * x + 0.2843 * x * x * x - 0.1015 * x * x * x * x), y = (0.08 * x * (1 - x) + yt) * c + 0.012, z = -1.05 + x * c;
+    pos.push(xa, y, z, xb, y, z); uv.push(0, 1 - i / n, 1, 1 - i / n);
+  }
+  for (i = 0; i < n; i++) { var a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
 function buildAircraft() {
   var G_ = new THREE.Group(), A = { group: G_ };
   var std = function (hex, r, m) { return new THREE.MeshStandardMaterial({ color: col(hex), roughness: r, metalness: m || 0, side: THREE.DoubleSide }); };
@@ -315,6 +355,8 @@ function buildAircraft() {
   A.canopy = add(loftBody([[0.05, 0.30, 0.10, 0.98], [0.45, 0.44, 0.50, 1.02], [1.25, 0.44, 0.56, 1.02], [2.0, 0.36, 0.34, 0.86], [2.9, 0.12, 0.08, 0.62]], 12, 0.7), std('#16222c', 0.12, 0.6));
   add(new THREE.BoxGeometry(0.5, 0.05, 1.5), yel, 0, 1.58, 0.95);
   // asas
+  var DKL = (0.82 - 0.20) * 1.45 * LOGO_ASPECT, ltex = new THREE.TextureLoader().load(LOGO_URI); ltex.encoding = THREE.sRGBEncoding; ltex.anisotropy = 8;
+  var dkMat = new THREE.MeshStandardMaterial({ map: ltex, transparent: true, alphaTest: 0.03, roughness: 0.5, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
   var DIH = 3.5 * D2R; A.ail = []; A.flaps = []; A.wings = []; A.gearParts = [];
   [-1, 1].forEach(function (s) {
     var wg = new THREE.Group(); wg.position.set(0, -0.52, 0); wg.rotation.z = s * DIH; G_.add(wg); A.wings.push(wg);
@@ -322,6 +364,7 @@ function buildAircraft() {
     add(loftWing(s * 7.55, s * 7.92, 1.45, 1.15, -1.05, -0.95, 0, 0.1, 0.13), blue, 0, 0, 0, wg);
     var surf = function (xa, xb, list) { var h = new THREE.Group(); h.position.set(s * (xa + xb) / 2, 0.03, 0.40); wg.add(h); add(new THREE.BoxGeometry(xb - xa - 0.04, 0.06, 0.38), yel, 0, 0, 0.19, h); list.push(h); };
     surf(0.62, 4.1, A.flaps); surf(4.1, 7.5, A.ail);
+    var dk = new THREE.Mesh(wingDecal(s > 0 ? 1.6 : -1.6 - DKL, s > 0 ? 1.6 + DKL : -1.6), dkMat); dk.userData.noShadow = true; dk.renderOrder = 2; wg.add(dk);
     // trem principal
     var leg = add(new THREE.BoxGeometry(0.1, 1.42, 0.34), yel, s * 0.96, -1.06, -1.3); leg.rotation.z = s * 0.72;
     var wh = add(new THREE.CylinderGeometry(0.37, 0.37, 0.28, 16), tire, s * 1.45, -1.53, -1.3); wh.rotation.z = Math.PI / 2;
@@ -338,7 +381,7 @@ function buildAircraft() {
   var boom = add(new THREE.CylinderGeometry(0.035, 0.035, 13.4, 6), metal, 0, -0.80, 0.78); boom.rotation.z = Math.PI / 2;
   for (var k = -6; k <= 6; k += 1.5) if (Math.abs(k) > 0.8) add(new THREE.BoxGeometry(0.04, 0.3, 0.04), metal, k, -0.66, 0.72);
   add(new THREE.BoxGeometry(0.34, 0.3, 0.6), metal, 0, -0.78, -0.4);
-  G_.traverse(function (o) { if (o.isMesh && o !== A.prop && o !== A.blur) { o.castShadow = true; } });
+  G_.traverse(function (o) { if (o.isMesh && o !== A.prop && o !== A.blur && !o.userData.noShadow) { o.castShadow = true; } });
   return A;
 }
 
