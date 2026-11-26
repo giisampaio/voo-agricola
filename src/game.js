@@ -19,7 +19,7 @@
   // ---------- estado ----------
   var state = 'menu', mode = 'stick', camMode = 0, spraying = false, throttle = 0;
   var opt = { assist: true, sens: 1, invert: false, sound: true };
-  var ctl = { throttle: 0, pitch: 0, roll: 0, assist: true, mu: 0.035 };
+  var ctl = { throttle: 0, reverse: 0, brake: 0, yaw: 0, pitch: 0, roll: 0, assist: true, mu: 0.045 };
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
   var hint = { t: 0, flap: false, empty: false, done: false };
@@ -82,14 +82,40 @@
 
   // ---------- entradas na tela ----------
   var joy = { x: 0, y: 0, id: null }, keys = {}, kStick = { x: 0, y: 0 };
+  var P0 = 0.2, lever = P0, reverse = 0, brake = 0, rud = { bar: 0, id: null, l: 0, r: 0, val: 0 };
   function expo(x) { var d = 0.04, a = Math.abs(x); if (a < d) return 0; a = (a - d) / (1 - d); return (x < 0 ? -1 : 1) * Math.pow(Math.min(a, 1), 1.35); }
-  function setThrottle(t) { throttle = clamp(t, 0, 1); $('thr-knob').style.bottom = (throttle * 100) + '%'; $('thr-fill').style.height = (throttle * 100) + '%'; }
+  // manete: batente de marcha lenta em 20% do curso; abaixo dele é reverso, liberado só no solo
+  function setLever(p) {
+    p = clamp(p, 0, 1); if (!flight.onGround && p < P0) p = P0; if (Math.abs(p - P0) < 0.035) p = P0;
+    lever = p; throttle = p > P0 ? (p - P0) / (1 - P0) : 0; reverse = p < P0 ? (P0 - p) / P0 : 0;
+    var k = $('thr-knob'), f = $('thr-fill'); k.style.bottom = (p * 100) + '%'; k.textContent = reverse > 0 ? 'REV' : 'PWR'; k.classList.toggle('rev', reverse > 0);
+    f.style.bottom = (Math.min(p, P0) * 100) + '%'; f.style.height = (Math.abs(p - P0) * 100) + '%'; f.classList.toggle('rev', reverse > 0);
+  }
+  function setThrottle(t) { setLever(P0 + clamp(t, 0, 1) * (1 - P0)); }
+  function setFlap(n) { n = clamp(n, 0, 2); if (n !== flight.flap) { flight.flap = n; sfx('flap'); } paintFlap(); }
+  function paintFlap() { var k = $('flap-knob'); k.style.top = (flight.flap * 50) + '%'; k.textContent = flight.flap; $('flap').setAttribute('aria-valuenow', flight.flap); }
+  function setBrake(on) { brake = on ? 1 : 0; $('b-brake').classList.toggle('on', !!on); }
   (function () {
     var el = $('thr'), id = null;
-    var mv = function (e) { var r = stageRect($('thr-track')), p = stagePt(e); setThrottle(1 - (p.y - r.y) / r.h); };
+    var mv = function (e) { var r = stageRect($('thr-track')), p = stagePt(e); setLever(1 - (p.y - r.y) / r.h); };
     el.addEventListener('pointerdown', function (e) { id = e.pointerId; try { el.setPointerCapture(id); } catch (x) { } mv(e); e.preventDefault(); });
     el.addEventListener('pointermove', function (e) { if (e.pointerId === id) mv(e); });
     var up = function (e) { if (e.pointerId === id) id = null; }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+    // alavanca de flape: arrasta ou toca na posição
+    var fl = $('flap'), fid = null, fm = function (e) { var r = stageRect($('flap-track')), p = stagePt(e); setFlap(Math.round(clamp((p.y - r.y) / r.h, 0, 1) * 2)); };
+    fl.addEventListener('pointerdown', function (e) { fid = e.pointerId; try { fl.setPointerCapture(fid); } catch (x) { } fm(e); e.preventDefault(); });
+    fl.addEventListener('pointermove', function (e) { if (e.pointerId === fid) fm(e); });
+    var fu = function (e) { if (e.pointerId === fid) fid = null; }; fl.addEventListener('pointerup', fu); fl.addEventListener('pointercancel', fu);
+    // pedais: toque nos pedais (curso total) ou arraste na barra (proporcional, volta ao centro)
+    var rb = $('rud-bar'), rm = function (e) { var r = stageRect(rb), p = stagePt(e); rud.bar = clamp((p.x - r.x - r.w / 2) / (r.w / 2 - 20), -1, 1); };
+    rb.addEventListener('pointerdown', function (e) { rud.id = e.pointerId; try { rb.setPointerCapture(rud.id); } catch (x) { } rm(e); e.preventDefault(); });
+    rb.addEventListener('pointermove', function (e) { if (e.pointerId === rud.id) rm(e); });
+    var ru = function (e) { if (e.pointerId === rud.id) { rud.id = null; rud.bar = 0; } }; rb.addEventListener('pointerup', ru); rb.addEventListener('pointercancel', ru);
+    var hold = function (id, on, off) { var b = $(id), pid = null;
+      b.addEventListener('pointerdown', function (e) { pid = e.pointerId; try { b.setPointerCapture(pid); } catch (x) { } on(); b.classList.add('on'); e.preventDefault(); });
+      var u = function (e) { if (e.pointerId === pid) { pid = null; off(); b.classList.remove('on'); } }; b.addEventListener('pointerup', u); b.addEventListener('pointercancel', u); };
+    hold('ped-l', function () { rud.l = 1; }, function () { rud.l = 0; }); hold('ped-r', function () { rud.r = 1; }, function () { rud.r = 0; });
+    hold('b-brake', function () { setBrake(true); }, function () { setBrake(false); });
     var j = $('joy');
     var jm = function (e) { var r = stageRect(j), p = stagePt(e), R = r.w / 2 - 22; joy.x = clamp((p.x - r.x - r.w / 2) / R, -1, 1); joy.y = clamp((p.y - r.y - r.h / 2) / R, -1, 1); var l = Math.sqrt(joy.x * joy.x + joy.y * joy.y); if (l > 1) { joy.x /= l; joy.y /= l; } $('joy-knob').style.transform = 'translate(' + (joy.x * R) + 'px,' + (joy.y * R) + 'px)'; };
     j.addEventListener('pointerdown', function (e) { joy.id = e.pointerId; try { j.setPointerCapture(joy.id); } catch (x) { } jm(e); e.preventDefault(); });
@@ -98,21 +124,24 @@
     j.addEventListener('pointerup', ju); j.addEventListener('pointercancel', ju);
   })();
   function toggleSpray(on) { var was = spraying; spraying = on === undefined ? !spraying : on; if (flight.hopper <= 0) spraying = false; if (was !== spraying) sfx('valve', spraying); $('b-spray').classList.toggle('on', spraying); $('b-spray').setAttribute('aria-pressed', spraying ? 'true' : 'false'); }
-  function cycleFlap() { flight.flap = (flight.flap + 1) % 3; sfx('flap'); }
   function cycleCam() { camMode = (camMode + 1) % 2; plane.canopy.visible = camMode === 0; camSnap = true; }
   var tap = function (id, fn) { $(id).addEventListener('click', function (e) { e.preventDefault(); fn(); }); };
-  tap('b-spray', function () { toggleSpray(); }); tap('b-flap', cycleFlap); tap('b-cam', cycleCam); tap('b-pause', function () { pause(true); });
+  tap('b-spray', function () { toggleSpray(); }); tap('b-cam', cycleCam); tap('b-pause', function () { pause(true); });
   window.addEventListener('keydown', function (e) {
     keys[e.code] = true;
     if (state !== 'play') return;
     if (e.code === 'Space') { toggleSpray(); e.preventDefault(); }
-    if (e.code === 'KeyF') cycleFlap(); if (e.code === 'KeyC') cycleCam(); if (e.code === 'KeyP' || e.code === 'Escape') pause(true);
+    if (e.code === 'KeyF') setFlap(flight.flap + 1); if (e.code === 'KeyR') setFlap(flight.flap - 1); if (e.code === 'KeyC') cycleCam(); if (e.code === 'KeyP' || e.code === 'Escape') pause(true);
     if (e.code.indexOf('Arrow') === 0) e.preventDefault();
   });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 
   function readInput(dt) {
-    if (keys.KeyW || keys.PageUp) setThrottle(throttle + dt * 0.7); if (keys.KeyS || keys.PageDown) setThrottle(throttle - dt * 0.7);
+    if (keys.KeyW || keys.PageUp) setLever(lever + dt * 0.6); if (keys.KeyS || keys.PageDown) setLever(lever - dt * 0.6);
+    if (!flight.onGround && reverse > 0) setLever(P0);
+    var rt = clamp(rud.bar + rud.r - rud.l + (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0), -1, 1);
+    rud.val += (rt - rud.val) * Math.min(1, dt * 7);
+    $('rud-knob').style.transform = 'translateX(' + (rud.val * 100) + '%)';
     var kx = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ky = (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0), k = Math.min(1, dt * 5);
     kStick.x += (kx - kStick.x) * k; kStick.y += (ky - kStick.y) * k;
     var roll, pitch;
@@ -125,8 +154,8 @@
     } else { roll = expo(joy.x); pitch = expo(joy.y); }
     if (opt.invert) pitch = -pitch;
     roll = clamp(roll + kStick.x, -1, 1); pitch = clamp(pitch + kStick.y, -1, 1);
-    ctl.throttle = throttle; ctl.roll = roll; ctl.pitch = pitch; ctl.assist = opt.assist;
-    ctl.mu = (Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL) ? 0.035 : 0.09;
+    ctl.throttle = throttle; ctl.reverse = reverse; ctl.brake = Math.max(brake, keys.KeyB ? 1 : 0); ctl.yaw = rud.val; ctl.roll = roll; ctl.pitch = pitch; ctl.assist = opt.assist;
+    ctl.mu = (Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL) ? 0.045 : 0.09;
   }
 
   // ---------- som ----------
@@ -179,7 +208,6 @@
     var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.agl * M2FT;
     $('h-spd').textContent = Math.round(kt); $('h-alt').textContent = ft < 60 ? Math.round(ft) : Math.round(ft / 10) * 10;
     $('h-tq').textContent = Math.round(flight.pow * 100); $('h-g').textContent = fmt(flight.nz, 1);
-    $('b-flap').firstChild.nodeValue = 'FLAPE ' + flight.flap;
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
     $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join('  ');
     var w = '', wc2 = '';
@@ -192,13 +220,13 @@
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    flight.reset(START); resetFields(); spray.clear(); setThrottle(0); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
+    flight.reset(START); resetFields(); spray.clear(); setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    say('Flape 1 armado. Potência total e puxe ao passar de 75 kt.', 7);
+    say('Flape 1 armado. Potência total e puxe ao passar de 75 kt. Pedais para manter o eixo.', 7);
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
   function pause(on) {
@@ -271,7 +299,7 @@
   }
 
   // ---------- simulação por quadro ----------
-  var lastX = 0, lastZ = 0, H = 1 / 120, acc = 0, sinkWas = 0;
+  var lastX = 0, lastZ = 0, H = 1 / 120, acc = 0, sinkWas = 0, stopT = 0;
   function simulate(dt) {
     readInput(dt);
     simT += dt; stats.time += flight.hasFlown || !flight.onGround ? dt : 0;
@@ -302,7 +330,7 @@
     if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
     if (!hint.done && FIELDS.every(function (f) { return f.cov / f.grid.length > 0.95; })) { hint.done = true; say('Talhões concluídos. Volte para a pista e pouse.', 7); }
     if (flight.crashed) { sfx('crash'); finish(flight.crashed); return; }
-    if (flight.hasFlown && flight.onGround && flight.vf < 0.5 && throttle < 0.05) finish(null);
+    if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && lever === P0) { stopT += dt; if (stopT > 1.2) finish(null); } else stopT = 0;
   }
 
   // ---------- câmera e visual ----------
@@ -310,7 +338,7 @@
   function updateVisual(dt) {
     var g = plane.group; g.position.copy(flight.pos); g.quaternion.copy(flight.quat);
     plane.prop.rotation.z -= (6 + flight.pow * 40) * dt; plane.prop.material.opacity = 0.55 - flight.pow * 0.3; plane.blur.material.opacity = 0.06 + flight.pow * 0.12;
-    flapVis += ([0, 0.2, 0.45][flight.flap] - flapVis) * Math.min(1, dt * 2.5);
+    flapVis = flight.flapPos <= 1 ? flight.flapPos * 0.2 : 0.2 + (flight.flapPos - 1) * 0.25;
     plane.flaps[0].rotation.x = plane.flaps[1].rotation.x = flapVis;
     plane.ail[0].rotation.x = flight.da * 0.3; plane.ail[1].rotation.x = -flight.da * 0.3;       // esquerda desce para rolar à direita
     plane.elev.rotation.x = -flight.de * 0.35;
@@ -350,5 +378,5 @@
     requestAnimationFrame(frame);
   }
   layout(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, opt: opt, fields: FIELDS, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, setFlap: setFlap, rud: rud, opt: opt, fields: FIELDS, stats: stats };
 })();

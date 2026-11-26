@@ -27,18 +27,20 @@ function sstep(x, a, b) { var t = clamp((x - a) / (b - a), 0, 1); return t * t *
 function sigm(x) { return 1 / (1 + Math.exp(-x)); }
 
 function aeroCoef(a, flap, pow) {
-  var cl0 = AC.CL0 + AC.flapCL[flap];
+  var fi = Math.min(1, Math.floor(flap)), ff = flap - fi;
+  var fCL = AC.flapCL[fi] + (AC.flapCL[fi + 1] - AC.flapCL[fi]) * ff, fCD = AC.flapCD[fi] + (AC.flapCD[fi + 1] - AC.flapCD[fi]) * ff;
+  var cl0 = AC.CL0 + fCL;
   var lin = cl0 + AC.CLA * a;
   var sig = a > 0 ? sigm((a - AC.aStall) / (1.2 * D2R)) : sigm((AC.aStallNeg - a) / (1.2 * D2R));
-  var fp = 1.4 * Math.sin(2 * a) + 0.3 * AC.flapCL[flap];
+  var fp = 1.4 * Math.sin(2 * a) + 0.3 * fCL;
   var CL = lin * (1 - sig) + fp * sig;
   var sa = Math.sin(a);
-  var CD = AC.CD0 + AC.flapCD[flap] + AC.K * CL * CL + sig * 1.2 * sa * sa + 0.012 * (1 - pow);
+  var CD = AC.CD0 + fCD + AC.K * CL * CL + sig * 1.2 * sa * sa + 0.012 * (1 - pow);
   return { CL: CL, CD: CD, sig: sig, cl0: cl0 };
 }
 
 function thrust(V, pow) {
-  var pf = 0.06 + 0.94 * pow;
+  var pf = 0.04 + 0.96 * pow;
   var a = AC.Ts * pf, b = AC.P * pf / Math.max(V, 1);
   return 1 / Math.cbrt(1 / (a * a * a) + 1 / (b * b * b));
 }
@@ -53,7 +55,7 @@ function Flight() {
 Flight.prototype.reset = function (o) {
   this.psi = o.psi || 0; this.theta = AC.thetaGround; this.phi = 0;
   this.onGround = true; this.vf = 0; this.p = 0; this.q = 0; this.r = 0;
-  this.pow = 0; this.flap = o.flap || 0; this.hopper = o.hopper || 0;
+  this.pow = 0; this.rev = 0; this.flap = o.flap || 0; this.flapPos = this.flap; this.hopper = o.hopper || 0;
   this.alphaTrim = 0; this.alpha = 0; this.beta = 0; this.V = 0; this.nz = 1; this.sig = 0;
   this.gamma = 0; this.crashed = null; this.dropSign = 1; this.groundY = 0; this.airTime = 0;
   this.de = 0; this.da = 0; this.dr = 0; this.agl = 0; this.hasFlown = false; this.gI = 0;
@@ -79,8 +81,11 @@ Flight.prototype.worldPoint = function (l, out) {
 
 Flight.prototype.step = function (dt, c, wind) {
   if (this.crashed) return;
-  var tau = c.throttle > this.pow ? 1.1 : 0.7;
-  this.pow += (c.throttle - this.pow) * Math.min(1, dt / tau);
+  var rv = this.onGround ? (c.reverse || 0) : 0;                 // reverso bloqueado em voo
+  var tgt = Math.max(c.throttle, rv * 0.7), tau = tgt > this.pow ? 1.1 : 0.7;
+  this.pow += (tgt - this.pow) * Math.min(1, dt / tau);
+  this.rev += (rv - this.rev) * Math.min(1, dt / 0.5);
+  this.flapPos += clamp(this.flap - this.flapPos, -dt / 1.5, dt / 1.5);
   if (this.onGround) this._ground(dt, c, wind); else this._air(dt, c, wind);
 };
 
@@ -90,15 +95,20 @@ Flight.prototype._ground = function (dt, c, wind) {
   var head = -(wind.x * fx + wind.z * fz);
   var Va = Math.max(0, this.vf + head);
   var qb = 0.5 * RHO * Va * Va;
-  var co = aeroCoef(this.theta, this.flap, this.pow);
-  var L = qb * AC.S * co.CL, D = qb * AC.S * co.CD, T = thrust(Va, this.pow);
+  var co = aeroCoef(this.theta, this.flapPos, this.pow);
+  var L = qb * AC.S * co.CL, D = qb * AC.S * co.CD, T = thrust(Va, this.pow) * (1 - 1.5 * this.rev);
   var N = Math.max(0, W - L);
-  var mu = (c.mu || 0.035) + (c.throttle < 0.04 ? 0.30 : 0);
-  var F = T - D;
-  if (this.vf < 0.05 && F < mu * N) { this.vf = 0; }
-  else { this.vf += (F - mu * N) / m * dt; if (this.vf < 0) this.vf = 0; }
+  var brk = c.brake || 0, mu = (c.mu || 0.045) + 0.36 * brk;
+  var dir = this.vf > 0.05 ? 1 : (this.vf < -0.05 ? -1 : 0), F = T - D * (dir < 0 ? -1 : 1);
+  if (dir === 0 && Math.abs(F) <= mu * N) this.vf = 0;
+  else {
+    var nv = this.vf + (F - mu * N * (dir || (F > 0 ? 1 : -1))) / m * dt;
+    if (dir !== 0 && nv * dir < 0 && Math.abs(F) <= mu * N) nv = 0;       // atrito para o avião, não inverte o movimento
+    this.vf = Math.max(nv, -3);
+  }
   // direção pela bequilha / leme
-  var yr = c.roll * 0.55 * Math.min(1, this.vf / 5) / (1 + this.vf / 22);
+  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll * 0.6, -1, 1);
+  var yr = steer * 0.55 * (1 + 0.8 * brk / (1 + av / 6)) * Math.min(1, av / 5) / (1 + av / 22) * (this.vf < 0 ? -1 : 1);
   this.psi += yr * dt;
   // cauda sobe com a velocidade; profundor gira o avião
   var s = sstep(Va, 16, 30);
@@ -111,8 +121,8 @@ Flight.prototype._ground = function (dt, c, wind) {
   this._placeOnGround(); this._setQuat();
   this.vel.set(fx * this.vf, 0, fz * this.vf);
   this.V = Va; this.alpha = this.theta; this.beta = 0; this.nz = 1; this.sig = co.sig; this.gamma = 0; this.agl = 0;
-  this.de = c.pitch; this.da = c.roll; this.dr = c.roll;
-  if (Va > 22 && L * Math.cos(this.theta) + T * Math.sin(this.theta) > W) {
+  this.de = c.pitch; this.da = c.roll; this.dr = steer;
+  if (Va > 22 && this.rev < 0.05 && L * Math.cos(this.theta) + T * Math.sin(this.theta) > W) {
     this.onGround = false; this.vel.y = 0.6; this.pos.y += 0.03;
     this.p = this.q = this.r = 0; this.alphaTrim = this.theta; this.airTime = 0;
   }
@@ -126,8 +136,8 @@ Flight.prototype._air = function (dt, c, wind) {
   var V = Math.max(vb.length(), 1), u = -vb.z;
   var alpha = Math.atan2(-vb.y, u), beta = Math.asin(clamp(vb.x / V, -1, 1));
   var qb = 0.5 * RHO * V * V, qS = qb * AC.S;
-  var co = aeroCoef(alpha, this.flap, this.pow);
-  var L = qS * co.CL, D = qS * co.CD, Y = qS * AC.CYB * beta, T = thrust(V, this.pow);
+  var co = aeroCoef(alpha, this.flapPos, this.pow);
+  var L = qS * co.CL, D = qS * co.CD, Y = qS * AC.CYB * beta, T = thrust(V, this.pow) * (1 - 1.5 * this.rev);
   var n = Math.sqrt(u * u + vb.y * vb.y) || 1;
   // força no corpo
   var Fb = this._b.set(Y - D * vb.x / V, L * u / n - D * vb.y / V, L * vb.y / n - D * vb.z / V - T);
@@ -151,7 +161,8 @@ Flight.prototype._air = function (dt, c, wind) {
   var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.4) : 1);
   var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 11 * D2R);
   this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.6 : 1.5));
-  var dr = clamp(4 * beta - 0.6 * this.r + (c.yaw || 0), -1, 1);
+  var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
+  var dr = clamp(0.45 * ped + (1 - Math.abs(ped)) * 4 * beta - 0.6 * this.r, -1, 1);
   var eff = 1 - 0.6 * co.sig;
 
   var b2V = AC.b / (2 * V), c2V = AC.c / (2 * V);

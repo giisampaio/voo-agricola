@@ -55,9 +55,13 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(56%,230px);touch-action:none}
 #thr-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;color:var(--ink);text-shadow:0 1px 3px #000}
 #thr-track{position:absolute;left:25px;top:30px;bottom:18px;width:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
-#thr-fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--accent);opacity:.6;border-radius:7px}
+#thr-fill{position:absolute;left:0;right:0;bottom:20%;height:0;background:var(--accent);opacity:.7}
+#thr-fill.rev{background:var(--bad)}
+#thr-rev{position:absolute;left:0;right:0;bottom:0;height:20%;background:rgba(255,91,77,.28);border-radius:0 0 7px 7px}
+#thr-idle{position:absolute;left:-9px;right:-9px;bottom:20%;height:2px;margin-bottom:-1px;background:var(--ink)}
+#thr-knob.rev{border-color:var(--bad);color:var(--bad)}
 #thr-knob{position:absolute;left:-22px;bottom:0;width:56px;height:30px;margin-bottom:-15px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 10px/26px var(--f-num);text-align:center;letter-spacing:.08em}
-#status{position:absolute;left:50%;bottom:var(--sb);transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font:12px var(--f-num);white-space:nowrap}
+#status{position:absolute;left:50%;bottom:calc(var(--sb) + 54px);transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font:12px var(--f-num);white-space:nowrap}
 #status b{font-variant-numeric:tabular-nums}
 #hop{width:64px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 #hop-fill{height:100%;width:100%;background:var(--go)}
@@ -66,12 +70,33 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #b-cam{top:var(--st);right:calc(var(--sr) + 48px);width:40px;height:40px;font-size:10px}
 #b-spray{right:var(--sr);bottom:var(--sb);width:104px;height:104px;border-radius:50%;font-size:13px}
 #b-spray.on{background:var(--go);color:#06210a;border-color:#06210a;box-shadow:0 0 0 5px rgba(123,227,106,.35)}
-#b-flap{right:calc(var(--sr) + 116px);bottom:var(--sb);width:88px;height:46px}
+#b-brake{right:calc(var(--sr) + 116px);bottom:var(--sb);width:88px;height:46px}
+.btn.on{background:var(--ink);color:#0b120e}
+#flap{position:absolute;left:calc(var(--sl) + 70px);bottom:var(--sb);width:54px;height:138px;touch-action:none}
+#flap-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;text-shadow:0 1px 3px #000}
+#flap-track{position:absolute;left:21px;top:30px;bottom:18px;width:12px;background:var(--panel);border:1px solid var(--line);border-radius:7px}
+#flap-track i{position:absolute;left:-8px;right:-8px;height:2px;margin-top:-1px;background:var(--dim)}
+#flap-track i:nth-of-type(1){top:0}
+#flap-track i:nth-of-type(2){top:50%}
+#flap-track i:nth-of-type(3){top:100%}
+#flap-knob{position:absolute;left:-20px;top:50%;width:50px;height:28px;margin-top:-14px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 13px/24px var(--f-num);text-align:center;transition:top .12s}
+#rud{position:absolute;left:0;right:0;bottom:var(--sb);width:max-content;margin:0 auto;display:flex;align-items:center;gap:6px}
+#rud .ped{position:static;width:58px;height:46px;font-size:11px;touch-action:none}
+#rud-bar{position:relative;width:130px;height:46px;box-sizing:border-box;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;touch-action:none}
+#stage.narrow #rud-bar{width:92px}
+#rud-mid{position:absolute;left:50%;top:8px;bottom:8px;width:2px;margin-left:-1px;background:var(--dim)}
+#rud-knob{position:absolute;left:50%;top:5px;bottom:5px;width:34px;margin-left:-17px;border-radius:7px;background:var(--ink);opacity:.9;pointer-events:none}
+#stage.narrow #rud-knob{width:26px;margin-left:-13px}
 #joy{position:absolute;right:var(--sr);bottom:var(--sb);width:140px;height:140px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);touch-action:none}
 #joy-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--ink);opacity:.88;pointer-events:none}
 #hud:not(.stick) #joy{display:none}
-#hud.stick #b-spray{right:auto;left:calc(var(--sl) + 78px);width:86px;height:86px}
-#hud.stick #b-flap{right:auto;left:calc(var(--sl) + 78px);bottom:calc(var(--sb) + 96px);width:86px}
+#hud.stick #b-spray{right:auto;left:calc(var(--sl) + 132px);width:86px;height:86px}
+#hud.stick #b-brake{right:auto;left:calc(var(--sl) + 132px);bottom:calc(var(--sb) + 96px);width:86px;height:42px}
+#hud.stick #rud{left:84px}
+#hud.stick #status{left:calc(50% + 42px)}
+#stage.narrow #status{gap:8px;padding:6px 9px}
+#stage.narrow #status .opt{display:none}
+#stage.narrow #hop{width:48px}
 
 /* ---------- telas ---------- */
 .panel{position:absolute;left:0;top:0;width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;padding:10px var(--sr) 10px var(--sl);background:linear-gradient(90deg,rgba(8,14,10,.78),rgba(8,14,10,.25) 70%,rgba(8,14,10,0))}
@@ -113,9 +138,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
     <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
     <div id="warn"></div>
     <div id="msg" class="hidden"></div>
-    <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-fill"></div><div id="thr-knob">PWR</div></div></div>
-    <div id="status"><span>TQ <b id="h-tq">0</b>%</span><span>G <b id="h-g">1,0</b></span><span>HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span></div>
-    <button class="btn" id="b-flap" type="button">FLAPE 1</button>
+    <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-rev"></div><div id="thr-fill"></div><div id="thr-idle"></div><div id="thr-knob">PWR</div></div></div>
+    <div id="status"><span>TQ <b id="h-tq">0</b>%</span><span>G <b id="h-g">1,0</b></span><span class="opt">HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span></div>
+    <div id="flap" role="slider" aria-label="Alavanca de flape" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"><div id="flap-lbl">FLAPE</div><div id="flap-track"><i></i><i></i><i></i><div id="flap-knob">1</div></div></div>
+    <button class="btn" id="b-brake" type="button">FREIO</button>
+    <div id="rud"><button class="btn ped" id="ped-l" type="button" aria-label="Pedal esquerdo">&#9664; PÉ</button><div id="rud-bar" role="slider" aria-label="Leme"><div id="rud-mid"></div><div id="rud-knob"></div></div><button class="btn ped" id="ped-r" type="button" aria-label="Pedal direito">PÉ &#9654;</button></div>
     <button class="btn" id="b-spray" type="button" aria-pressed="false">APLICAR</button>
     <div id="joy" aria-label="Manche"><div id="joy-knob"></div></div>
   </div>
@@ -165,7 +192,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
         <button class="ghost" id="o-inv" type="button">Arfagem</button>
         <button class="ghost" id="o-snd" type="button">Som</button>
       </div>
-      <p class="sub">Assistido: o avião acompanha a inclinação e segura a altura nas curvas. Direto: aileron e profundor crus, com estol e queda de asa por sua conta.</p>
+      <p class="sub">Manete abaixo do batente é reverso, só no solo. Assistido: o avião acompanha a inclinação e segura a altura nas curvas. Direto: aileron e profundor crus, com estol e queda de asa por sua conta.</p>
       <div class="row">
         <button class="ghost" id="p-restart" type="button">Reiniciar</button>
         <button class="ghost" id="p-end" type="button">Encerrar e ver resultado</button>
