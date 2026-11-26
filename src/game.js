@@ -203,7 +203,7 @@
   // ---------- fitas de velocidade e altura (estilo PFD) ----------
   var tpS = $('tp-spd'), tpA = $('tp-alt'), gS = tpS.getContext('2d'), gA = tpA.getContext('2d'), tpW = 66, tpH = 150, altFine = true;
   var INK = '#eef3ea', FNT = '"B612 Mono", ui-monospace, Menlo, monospace';
-  function sizeTapes() { tpH = Math.round(clamp(SH * 0.42, 120, 190)); [tpS, tpA].forEach(function (c) { c.style.height = tpH + 'px'; c.width = Math.round(tpW * PR); c.height = Math.round(tpH * PR); }); }
+  function sizeTapes() { tpH = Math.round(clamp(SH * 0.42, 120, 190)); $('vsi').style.top = 'calc(var(--st) + ' + (tpH + 4) + 'px)'; [tpS, tpA].forEach(function (c) { c.style.height = tpH + 'px'; c.width = Math.round(tpW * PR); c.height = Math.round(tpH * PR); }); }
   function drawTape(g, val, o) {
     var Wd = tpW, Hd = tpH, mid = Hd / 2, v, y, k;
     g.setTransform(PR, 0, 0, PR, 0, 0); g.clearRect(0, 0, Wd, Hd);
@@ -227,7 +227,7 @@
     g.fillStyle = o.color || INK; g.font = '700 21px ' + FNT; g.textAlign = 'center'; g.fillText(o.text, o.left ? (Wd - 12) / 2 : (Wd + 12) / 2, mid + 1);
     g.font = '9px ' + FNT; g.fillStyle = '#a9b8ac'; g.fillText(o.label, Wd / 2, Hd - 8);
   }
-  var tpKey = '';
+  var tpKey = '', vsAvg = 0, vsShown = null, vsCls = '';
   function drawTapes(force) {
     var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = Math.max(0, flight.agl * M2FT);
     var key = Math.round(kt * 2) + '|' + Math.round(ft * (altFine ? 2 : 0.4)) + '|' + flight.flap + '|' + Math.round(flight.hopper / 40) + '|' + tpH;
@@ -256,6 +256,10 @@
     if (on !== ledOn || $('lb-leds').className !== cls) { if (ledOn >= 0) leds[ledOn].classList.remove('lit'); if (on >= 0) leds[on].classList.add('lit'); ledOn = on; $('lb-leds').className = cls; }
     if (!tick) return;
     var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.agl * M2FT;
+    // razão de subida, arredondada a 50 ft/min; perto do solo as cores seguem os limites do trem
+    vsAvg += (flight.vel.y * 196.85 - vsAvg) * 0.5; var vs = flight.onGround ? 0 : Math.round(vsAvg / 50) * 50, low = !flight.onGround && flight.agl < 30 && vs < 0;
+    var vcls = (vs > 0 ? 'up' : (vs < 0 ? 'dn' : 'lvl')) + (low && vs <= -670 ? ' bad' : (low && vs <= -370 ? ' warn' : ''));
+    if (vs !== vsShown || vcls !== vsCls) { vsShown = vs; vsCls = vcls; $('vsi-v').textContent = Math.abs(vs); $('vsi').className = vcls; }
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
     $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join(' ');
     var dm = flight.dmg, dl = []; if (dm.gear === 1) dl.push('TREM AVARIADO'); if (dm.gear === 2) dl.push('SEM TREM'); if (dm.wingL) dl.push('ASA E'); if (dm.wingR) dl.push('ASA D'); if (dm.engine) dl.push('MOTOR'); if (dm.fire) dl.push('FOGO'); if (dm.tail) dl.push('CAUDA');

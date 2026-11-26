@@ -33,6 +33,13 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 .tape{position:absolute;top:var(--st);width:66px;height:150px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box}
 #tp-spd{left:var(--sl)}
 #tp-alt{right:var(--sr)}
+#vsi{position:absolute;right:var(--sr);top:170px;width:66px;height:26px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:3px;background:rgba(5,8,7,.8);border:1px solid var(--line);border-radius:7px;font:700 13px var(--f-num);color:var(--ink)}
+#vsi .u{font-size:8px;font-weight:400;color:var(--dim)}
+#vsi-ar{font-size:9px}
+#vsi.lvl #vsi-ar{visibility:hidden}
+#vsi.dn #vsi-ar{transform:rotate(180deg)}
+#vsi.warn{color:var(--warn);border-color:var(--warn)}
+#vsi.bad{color:var(--bad);border-color:var(--bad)}
 #info{display:flex;align-items:center;gap:7px;font:700 11px var(--f-num);white-space:pre;text-shadow:0 1px 3px #000,0 0 2px #000}
 #h-dmg{position:absolute;left:0;right:0;bottom:calc(var(--sb) + 66px);width:max-content;margin:0 auto;padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
 #h-dmg:empty{display:none}
@@ -131,6 +138,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
     <div id="h-dmg"></div>
     <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div><div id="info"><span>HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span><span id="h-cov"></span></div></div>
     <canvas class="tape" id="tp-alt" aria-label="Altura sobre o solo em pés"></canvas>
+    <div id="vsi" aria-label="Razão de subida em pés por minuto"><span id="vsi-ar">&#9650;</span><b id="vsi-v">0</b><span class="u">fpm</span></div>
     <button class="btn" id="b-cam" type="button" aria-label="Trocar câmera">CAM</button>
     <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
     <div id="warn"></div>
