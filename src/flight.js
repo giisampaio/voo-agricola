@@ -9,7 +9,7 @@ var AC = {
   Ixx: 16000, Iyy: 14000, Izz: 28000,
   P: 559000 * 0.72,                       // 750 shp x rendimento da hélice
   Ts: 11000,                              // tração estática (N)
-  CL0: 0.25, CLA: 5.2, aStall: 20 * D2R, aStallNeg: -13 * D2R, aWarn: 15 * D2R,
+  CL0: 0.25, CLA: 5.2, aStall: 20 * D2R, aStallNeg: -13 * D2R, aWarn: 15.5 * D2R, aProt: 12.5 * D2R,
   flapCL: [0, 0.30, 0.68], flapCD: [0, 0.012, 0.045],
   CD0: 0.050, K: 0.047,
   CMA: -0.9, CMQ: -14, CMDE: 0.16,
@@ -156,18 +156,22 @@ Flight.prototype._air = function (dt, c, wind) {
   if (c.assist) {
     // taxa de arfagem própria da curva (não deve ser amortecida nem contada como erro)
     var ph = clamp(this.phi, -1.2, 1.2), qTurn = G * Math.sin(ph) * Math.tan(ph) / V;
-    var ge = c.pitch * 32 * D2R - this.gamma;
+    // proteção de velocidade: conforme a velocidade chega perto do estol, o nariz comandado baixa sozinho
+    var hgt = this.pos.y - this.groundY, fpo = this.flapPos, clm = 1.72 + (fpo <= 1 ? 0.28 * fpo : 0.28 + 0.36 * (fpo - 1));
+    var vsNow = Math.sqrt(2 * W / (RHO * AC.S * clm)), gUp = clamp(32 * D2R * (V / vsNow - 1.13) / 0.33, hgt < 15 ? 0 : -8 * D2R, 32 * D2R);
+    var gDn = -Math.atan2(Math.max(hgt - 1.9, 0) + 0.6, V * 3.5);    // perto do chão, a descida comandada fica rasa: não deixa mergulhar no solo
+    var ge = clamp(c.pitch * 32 * D2R, gDn, Math.max(gUp, gDn)) - this.gamma;
     this.gI = clamp((this.gI || 0) + ge * dt * 1.5, -0.3, 0.3);
     de = 4.5 * ge + this.gI - 0.4 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
-    if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 25;             // proteção de ângulo de ataque
+    if (alpha > AC.aProt) de -= (alpha - AC.aProt) * 25;             // proteção de ângulo de ataque
     de = clamp(de, -1, 1);
     // inclinação comandada até 75°, limitada ao que a asa sustenta em curva nivelada com a velocidade e o peso atuais
-    var nAv = qS * (co.cl0 + AC.CLA * AC.aWarn) * (nW ? 0.5 : 1) / W;
-    var hgt = this.pos.y - this.groundY, BMAX = 80 * D2R;
+    var nAv = qS * (co.cl0 + AC.CLA * (AC.aProt + 1.5 * D2R)) * (nW ? 0.5 : 1) / W;
+    var BMAX = 80 * D2R;
     var phiMax = nAv > 1.06 ? Math.min(BMAX, Math.acos(1 / (nAv * 0.95))) : 0.2;
     // com altura sobrando o limite de sustentação some: dá para deitar a asa no topo do balão e deixar o nariz cair
-    var sink = -this.vel.y, rec = sink > 1 ? sstep(hgt / sink, 2.5, 6) : 1;     // segundos até o chão no ritmo atual de descida
-    phiMax = phiMax * (0.3 + 0.7 * rec) + (BMAX - phiMax) * sstep(hgt, 14, 38) * rec;  // afundando perto do chão: desinclina para recuperar
+    var sink = -this.vel.y, rec = sink > 1 ? sstep(hgt / sink, 3.5, 8) : 1;     // segundos até o chão no ritmo atual de descida
+    phiMax = phiMax * (0.3 + 0.7 * rec) + (BMAX - phiMax) * sstep(hgt, 22, 50) * rec;  // afundando perto do chão: desinclina para recuperar
     phiMax = Math.min(phiMax, Math.asin(clamp((hgt - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
     this.phiMax = phiMax;
     da = clamp(3.0 * (clamp(c.roll * 80 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);

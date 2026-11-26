@@ -5,9 +5,9 @@ function col(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
 var SWATH = 30, RWY_HW = 11, RWY_HL = 450, GROUND_HALF = 2048;
 // Cada missão é um talhão de uma fazenda. Faixas de 30 m; a largura dá meia volta de balão entre a faixa i e a i + n/2.
 var FIELDS = [
-  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 480, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 } },
-  { farm: 'Fazenda Santa Luzia', name: 'Talhão 12', prod: 'fungicida', rate: 30, lvl: 2, cx: 900, cz: -900, len: 900, wid: 480, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 } },
-  { farm: 'Fazenda Boa Esperança', name: 'Talhão 3', prod: 'dessecante', rate: 25, lvl: 3, cx: 1000, cz: 900, len: 1100, wid: 600, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 1, treesU: -1 } }
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 120, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 } },
+  { farm: 'Fazenda Santa Luzia', name: 'Talhão 12', prod: 'fungicida', rate: 30, lvl: 2, cx: 900, cz: -900, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 } },
+  { farm: 'Fazenda Boa Esperança', name: 'Talhão 3', prod: 'dessecante', rate: 25, lvl: 3, cx: 1000, cz: 900, len: 1100, wid: 480, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 1, treesU: -1 } }
 ];
 var ACTIVE = [];                                                  // o talhão da missão em curso
 var SUN = new THREE.Vector3(0.52, 0.66, -0.38).normalize();
@@ -218,7 +218,7 @@ function buildWorld(scene, aniso) {
     if (inRect(x, z, 0, 160, 300, 460)) return true;                                          // sede
     for (var i = 0; i < FIELDS.length; i++) {
       var f = FIELDS[i], u = (x - f.cx) * f.ux + (z - f.cz) * f.uz, w = (x - f.cx) * f.wx + (z - f.cz) * f.wz;
-      if (Math.abs(u) < f.len / 2 + 680 && Math.abs(w) < f.wid / 2 + 90) return true;         // talhão e área de balão
+      if (Math.abs(u) < f.len / 2 + 720 && Math.abs(w) < f.wid / 2 + (Math.abs(u) > f.len / 2 - 60 ? 360 : 90)) return true;   // talhão e área de balão
     }
     return false;
   };
