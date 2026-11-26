@@ -30,14 +30,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 
 /* ---------- HUD ---------- */
 #hud{position:absolute;left:0;top:0;width:100%;height:100%}
-.inst{position:absolute;top:var(--st);display:flex;align-items:baseline;gap:6px;padding:4px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
-.inst b{font:700 26px/1.1 var(--f-num);min-width:3ch;text-align:right;font-variant-numeric:tabular-nums}
-.inst .lbl{font-size:10px;letter-spacing:.1em;color:var(--dim)}
-.inst .u{font-size:11px;color:var(--dim)}
-#i-spd{left:var(--sl)}
-#i-alt{right:calc(var(--sr) + 96px)}
-#h-cov{position:absolute;left:var(--sl);top:calc(var(--st) + 46px);font:700 12px var(--f-num);text-shadow:0 1px 3px #000,0 0 2px #000;white-space:pre}
-#h-dmg{position:absolute;left:var(--sl);top:calc(var(--st) + 64px);padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
+.tape{position:absolute;top:var(--st);width:66px;height:150px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box}
+#tp-spd{left:var(--sl)}
+#tp-alt{right:var(--sr)}
+#info{display:flex;align-items:center;gap:7px;font:700 11px var(--f-num);white-space:pre;text-shadow:0 1px 3px #000,0 0 2px #000}
+#h-dmg{position:absolute;left:0;right:0;bottom:var(--sb);width:max-content;margin:0 auto;padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
 #h-dmg:empty{display:none}
 #lightbar{position:absolute;top:var(--st);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px}
 #lb-leds{display:flex;gap:3px;padding:6px 7px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
@@ -48,13 +45,13 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #lb-leds.done i.lit{background:var(--dim)}
 #stage.narrow #lb-leds i{width:6px}
 #lb-txt{font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 2px #000}
-#warn{position:absolute;top:calc(var(--st) + 62px);left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:6px;font:700 17px var(--f-num);letter-spacing:.12em;white-space:nowrap}
+#warn{position:absolute;top:calc(var(--st) + 78px);left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:6px;font:700 17px var(--f-num);letter-spacing:.12em;white-space:nowrap}
 #warn:empty{display:none}
 #warn.bad{background:var(--bad);color:#240300}
 #warn.warn{background:var(--warn);color:#241600}
-#msg{position:absolute;top:calc(var(--st) + 98px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.35;text-align:center;text-wrap:balance}
-#stage.short #msg{top:calc(var(--st) + 62px)}
-#thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(56%,230px);touch-action:none}
+#msg{position:absolute;top:calc(var(--st) + 112px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.35;text-align:center;text-wrap:balance}
+#stage.short #msg{top:calc(var(--st) + 78px)}
+#thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(50%,210px);touch-action:none}
 #thr-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;color:var(--ink);text-shadow:0 1px 3px #000}
 #thr-track{position:absolute;left:25px;top:30px;bottom:18px;width:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
 #thr-fill{position:absolute;left:0;right:0;bottom:20%;height:0;background:var(--accent);opacity:.7}
@@ -63,13 +60,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #thr-idle{position:absolute;left:-9px;right:-9px;bottom:20%;height:2px;margin-bottom:-1px;background:var(--ink)}
 #thr-knob.rev{border-color:var(--bad);color:var(--bad)}
 #thr-knob{position:absolute;left:-22px;bottom:0;width:56px;height:30px;margin-bottom:-15px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 10px/26px var(--f-num);text-align:center;letter-spacing:.08em}
-#status{position:absolute;left:50%;bottom:calc(var(--sb) + 54px);transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font:12px var(--f-num);white-space:nowrap}
-#status b{font-variant-numeric:tabular-nums}
-#hop{width:64px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+#hop{width:54px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 #hop-fill{height:100%;width:100%;background:var(--go)}
 .btn{position:absolute;box-sizing:border-box;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);font-weight:700;font-size:12px;letter-spacing:.06em;border-radius:10px;padding:0}
-#b-pause{top:var(--st);right:var(--sr);width:40px;height:40px;font-size:13px}
-#b-cam{top:var(--st);right:calc(var(--sr) + 48px);width:40px;height:40px;font-size:10px}
+#b-pause{top:var(--st);right:calc(var(--sr) + 76px);width:40px;height:40px;font-size:13px}
+#b-cam{top:var(--st);right:calc(var(--sr) + 124px);width:40px;height:40px;font-size:10px}
 #b-spray{right:var(--sr);bottom:var(--sb);width:104px;height:104px;border-radius:50%;font-size:13px}
 #b-spray.on{background:var(--go);color:#06210a;border-color:#06210a;box-shadow:0 0 0 5px rgba(123,227,106,.35)}
 #b-brake{right:calc(var(--sr) + 116px);bottom:var(--sb);width:88px;height:46px}
@@ -82,23 +77,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #flap-track i:nth-of-type(2){top:50%}
 #flap-track i:nth-of-type(3){top:100%}
 #flap-knob{position:absolute;left:-20px;top:50%;width:50px;height:28px;margin-top:-14px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 13px/24px var(--f-num);text-align:center;transition:top .12s}
-#rud{position:absolute;left:0;right:0;bottom:var(--sb);width:max-content;margin:0 auto;display:flex;align-items:center;gap:6px}
-#rud .ped{position:static;width:58px;height:46px;font-size:11px;touch-action:none}
-#rud-bar{position:relative;width:130px;height:46px;box-sizing:border-box;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;touch-action:none}
-#stage.narrow #rud-bar{width:92px}
-#rud-mid{position:absolute;left:50%;top:8px;bottom:8px;width:2px;margin-left:-1px;background:var(--dim)}
-#rud-knob{position:absolute;left:50%;top:5px;bottom:5px;width:34px;margin-left:-17px;border-radius:7px;background:var(--ink);opacity:.9;pointer-events:none}
-#stage.narrow #rud-knob{width:26px;margin-left:-13px}
 #joy{position:absolute;right:var(--sr);bottom:var(--sb);width:140px;height:140px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);touch-action:none}
 #joy-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--ink);opacity:.88;pointer-events:none}
 #hud:not(.stick) #joy{display:none}
 #hud.stick #b-spray{right:auto;left:calc(var(--sl) + 132px);width:86px;height:86px}
 #hud.stick #b-brake{right:auto;left:calc(var(--sl) + 132px);bottom:calc(var(--sb) + 96px);width:86px;height:42px}
-#hud.stick #rud{left:84px}
-#hud.stick #status{left:calc(50% + 42px)}
-#stage.narrow #status{gap:8px;padding:6px 9px}
-#stage.narrow #status .opt{display:none}
-#stage.narrow #hop{width:48px}
 
 /* ---------- telas ---------- */
 .panel{position:absolute;left:0;top:0;width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;padding:10px var(--sr) 10px var(--sl);background:linear-gradient(90deg,rgba(8,14,10,.78),rgba(8,14,10,.25) 70%,rgba(8,14,10,0))}
@@ -132,20 +115,17 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
   <canvas id="gl"></canvas>
 
   <div id="hud" class="hidden stick">
-    <div class="inst" id="i-spd"><span class="lbl">VEL</span><b id="h-spd">0</b><span class="u">kt</span></div>
-    <div id="h-cov"></div>
+    <canvas class="tape" id="tp-spd" aria-label="Velocidade indicada em nós"></canvas>
     <div id="h-dmg"></div>
-    <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div></div>
-    <div class="inst" id="i-alt"><span class="lbl">ALT</span><b id="h-alt">0</b><span class="u">ft</span></div>
+    <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div><div id="info"><span>HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span><span id="h-cov"></span></div></div>
+    <canvas class="tape" id="tp-alt" aria-label="Altura sobre o solo em pés"></canvas>
     <button class="btn" id="b-cam" type="button" aria-label="Trocar câmera">CAM</button>
     <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
     <div id="warn"></div>
     <div id="msg" class="hidden"></div>
     <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-rev"></div><div id="thr-fill"></div><div id="thr-idle"></div><div id="thr-knob">PWR</div></div></div>
-    <div id="status"><span>TQ <b id="h-tq">0</b>%</span><span>G <b id="h-g">1,0</b></span><span class="opt">HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span></div>
     <div id="flap" role="slider" aria-label="Alavanca de flape" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"><div id="flap-lbl">FLAPE</div><div id="flap-track"><i></i><i></i><i></i><div id="flap-knob">1</div></div></div>
     <button class="btn" id="b-brake" type="button">FREIO</button>
-    <div id="rud"><button class="btn ped" id="ped-l" type="button" aria-label="Pedal esquerdo">&#9664; PÉ</button><div id="rud-bar" role="slider" aria-label="Leme"><div id="rud-mid"></div><div id="rud-knob"></div></div><button class="btn ped" id="ped-r" type="button" aria-label="Pedal direito">PÉ &#9654;</button></div>
     <button class="btn" id="b-spray" type="button" aria-pressed="false">APLICAR</button>
     <div id="joy" aria-label="Manche"><div id="joy-knob"></div></div>
   </div>
@@ -157,7 +137,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
       <ol>
         <li>Flape 1, potência total, puxe ao passar de 75 kt.</li>
         <li>Recolha o flape, desça a 10 ft sobre a lavoura e ligue a aplicação entre 105 e 125 kt.</li>
-        <li>Siga a guia de faixa (24 m), suba antes das árvores e da rede elétrica, e pouse de volta.</li>
+        <li>Siga a guia de faixa (24 m), suba antes das árvores e da rede elétrica, e pouse de volta. Freio e reverso para parar.</li>
       </ol>
       <div class="row">
         <button class="cta" id="m-tilt" type="button">Pilotar inclinando o iPhone</button>

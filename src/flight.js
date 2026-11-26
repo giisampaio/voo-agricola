@@ -9,11 +9,11 @@ var AC = {
   Ixx: 16000, Iyy: 14000, Izz: 28000,
   P: 559000 * 0.72,                       // 750 shp x rendimento da hélice
   Ts: 11000,                              // tração estática (N)
-  CL0: 0.25, CLA: 5.2, aStall: 17 * D2R, aStallNeg: -13 * D2R, aWarn: 12 * D2R,
+  CL0: 0.25, CLA: 5.2, aStall: 20 * D2R, aStallNeg: -13 * D2R, aWarn: 15 * D2R,
   flapCL: [0, 0.30, 0.68], flapCD: [0, 0.012, 0.045],
   CD0: 0.050, K: 0.047,
   CMA: -0.9, CMQ: -14, CMDE: 0.16,
-  CLDA: 0.05, CLP: -0.45, CLB: -0.06, CLR: 0.06,
+  CLDA: 0.085, CLP: -0.45, CLB: -0.06, CLR: 0.06,
   CNB: 0.09, CNR: -0.13, CNDR: 0.05, CNDA: -0.004,
   CYB: -0.6,
   thetaGround: 9 * D2R,
@@ -109,7 +109,7 @@ Flight.prototype._ground = function (dt, c, wind) {
     this.vf = Math.max(nv, -3);
   }
   // direção pela bequilha / leme
-  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll * 0.6, -1, 1);
+  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll, -1, 1);
   if (this.belly) steer = 0; else if (this.dmg.gear === 1) steer = clamp(steer + 0.2 * Math.min(1, av / 8), -1, 1);   // trem avariado puxa para um lado
   var yr = steer * 0.55 * (1 + 0.8 * brk / (1 + av / 6)) * Math.min(1, av / 5) / (1 + av / 22) * (this.vf < 0 ? -1 : 1);
   this.psi += yr * dt;
@@ -159,14 +159,19 @@ Flight.prototype._air = function (dt, c, wind) {
     var ge = c.pitch * 25 * D2R - this.gamma;
     this.gI = clamp((this.gI || 0) + ge * dt * 1.5, -0.3, 0.3);
     de = 4.5 * ge + this.gI - 0.4 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
-    if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 10;
+    if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 25;             // proteção de ângulo de ataque
     de = clamp(de, -1, 1);
-    da = clamp(2.4 * (c.roll * 65 * D2R - this.phi) - 0.45 * this.p, -1, 1);
+    // inclinação comandada até 75°, limitada ao que a asa sustenta em curva nivelada com a velocidade e o peso atuais
+    var nAv = qS * (co.cl0 + AC.CLA * AC.aWarn) * (nW ? 0.5 : 1) / W;
+    var phiMax = nAv > 1.06 ? Math.min(75 * D2R, Math.acos(1 / (nAv * 0.95))) : 0.2;
+    phiMax = Math.min(phiMax, Math.asin(clamp((this.pos.y - this.groundY - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
+    this.phiMax = phiMax;
+    da = clamp(3.0 * (clamp(c.roll * 75 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);
   } else { de = clamp(c.pitch, -1, 1); da = clamp(c.roll, -1, 1); }
   // compensador automático (mantém ~1 g com o manche neutro)
-  var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.4) : 1);
-  var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 11 * D2R);
-  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.6 : 1.5));
+  var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.25) : 1);
+  var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 14 * D2R);
+  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.35 : 1.5));
   var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
   var dr = clamp(0.45 * ped + (1 - Math.abs(ped)) * 4 * beta - 0.6 * this.r, -1, 1);
   var eff = (1 - 0.6 * co.sig) * (nW ? 0.45 : 1);

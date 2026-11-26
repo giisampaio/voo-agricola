@@ -30,14 +30,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 
 /* ---------- HUD ---------- */
 #hud{position:absolute;left:0;top:0;width:100%;height:100%}
-.inst{position:absolute;top:var(--st);display:flex;align-items:baseline;gap:6px;padding:4px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
-.inst b{font:700 26px/1.1 var(--f-num);min-width:3ch;text-align:right;font-variant-numeric:tabular-nums}
-.inst .lbl{font-size:10px;letter-spacing:.1em;color:var(--dim)}
-.inst .u{font-size:11px;color:var(--dim)}
-#i-spd{left:var(--sl)}
-#i-alt{right:calc(var(--sr) + 96px)}
-#h-cov{position:absolute;left:var(--sl);top:calc(var(--st) + 46px);font:700 12px var(--f-num);text-shadow:0 1px 3px #000,0 0 2px #000;white-space:pre}
-#h-dmg{position:absolute;left:var(--sl);top:calc(var(--st) + 64px);padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
+.tape{position:absolute;top:var(--st);width:66px;height:150px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box}
+#tp-spd{left:var(--sl)}
+#tp-alt{right:var(--sr)}
+#info{display:flex;align-items:center;gap:7px;font:700 11px var(--f-num);white-space:pre;text-shadow:0 1px 3px #000,0 0 2px #000}
+#h-dmg{position:absolute;left:0;right:0;bottom:var(--sb);width:max-content;margin:0 auto;padding:2px 7px;border-radius:5px;background:var(--bad);color:#240300;font:700 11px var(--f-num);letter-spacing:.06em}
 #h-dmg:empty{display:none}
 #lightbar{position:absolute;top:var(--st);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px}
 #lb-leds{display:flex;gap:3px;padding:6px 7px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
@@ -48,13 +45,13 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #lb-leds.done i.lit{background:var(--dim)}
 #stage.narrow #lb-leds i{width:6px}
 #lb-txt{font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 2px #000}
-#warn{position:absolute;top:calc(var(--st) + 62px);left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:6px;font:700 17px var(--f-num);letter-spacing:.12em;white-space:nowrap}
+#warn{position:absolute;top:calc(var(--st) + 78px);left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:6px;font:700 17px var(--f-num);letter-spacing:.12em;white-space:nowrap}
 #warn:empty{display:none}
 #warn.bad{background:var(--bad);color:#240300}
 #warn.warn{background:var(--warn);color:#241600}
-#msg{position:absolute;top:calc(var(--st) + 98px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.35;text-align:center;text-wrap:balance}
-#stage.short #msg{top:calc(var(--st) + 62px)}
-#thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(56%,230px);touch-action:none}
+#msg{position:absolute;top:calc(var(--st) + 112px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.35;text-align:center;text-wrap:balance}
+#stage.short #msg{top:calc(var(--st) + 78px)}
+#thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(50%,210px);touch-action:none}
 #thr-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;color:var(--ink);text-shadow:0 1px 3px #000}
 #thr-track{position:absolute;left:25px;top:30px;bottom:18px;width:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
 #thr-fill{position:absolute;left:0;right:0;bottom:20%;height:0;background:var(--accent);opacity:.7}
@@ -63,13 +60,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #thr-idle{position:absolute;left:-9px;right:-9px;bottom:20%;height:2px;margin-bottom:-1px;background:var(--ink)}
 #thr-knob.rev{border-color:var(--bad);color:var(--bad)}
 #thr-knob{position:absolute;left:-22px;bottom:0;width:56px;height:30px;margin-bottom:-15px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 10px/26px var(--f-num);text-align:center;letter-spacing:.08em}
-#status{position:absolute;left:50%;bottom:calc(var(--sb) + 54px);transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font:12px var(--f-num);white-space:nowrap}
-#status b{font-variant-numeric:tabular-nums}
-#hop{width:64px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+#hop{width:54px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 #hop-fill{height:100%;width:100%;background:var(--go)}
 .btn{position:absolute;box-sizing:border-box;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);font-weight:700;font-size:12px;letter-spacing:.06em;border-radius:10px;padding:0}
-#b-pause{top:var(--st);right:var(--sr);width:40px;height:40px;font-size:13px}
-#b-cam{top:var(--st);right:calc(var(--sr) + 48px);width:40px;height:40px;font-size:10px}
+#b-pause{top:var(--st);right:calc(var(--sr) + 76px);width:40px;height:40px;font-size:13px}
+#b-cam{top:var(--st);right:calc(var(--sr) + 124px);width:40px;height:40px;font-size:10px}
 #b-spray{right:var(--sr);bottom:var(--sb);width:104px;height:104px;border-radius:50%;font-size:13px}
 #b-spray.on{background:var(--go);color:#06210a;border-color:#06210a;box-shadow:0 0 0 5px rgba(123,227,106,.35)}
 #b-brake{right:calc(var(--sr) + 116px);bottom:var(--sb);width:88px;height:46px}
@@ -82,23 +77,11 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #flap-track i:nth-of-type(2){top:50%}
 #flap-track i:nth-of-type(3){top:100%}
 #flap-knob{position:absolute;left:-20px;top:50%;width:50px;height:28px;margin-top:-14px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 13px/24px var(--f-num);text-align:center;transition:top .12s}
-#rud{position:absolute;left:0;right:0;bottom:var(--sb);width:max-content;margin:0 auto;display:flex;align-items:center;gap:6px}
-#rud .ped{position:static;width:58px;height:46px;font-size:11px;touch-action:none}
-#rud-bar{position:relative;width:130px;height:46px;box-sizing:border-box;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;touch-action:none}
-#stage.narrow #rud-bar{width:92px}
-#rud-mid{position:absolute;left:50%;top:8px;bottom:8px;width:2px;margin-left:-1px;background:var(--dim)}
-#rud-knob{position:absolute;left:50%;top:5px;bottom:5px;width:34px;margin-left:-17px;border-radius:7px;background:var(--ink);opacity:.9;pointer-events:none}
-#stage.narrow #rud-knob{width:26px;margin-left:-13px}
 #joy{position:absolute;right:var(--sr);bottom:var(--sb);width:140px;height:140px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);touch-action:none}
 #joy-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--ink);opacity:.88;pointer-events:none}
 #hud:not(.stick) #joy{display:none}
 #hud.stick #b-spray{right:auto;left:calc(var(--sl) + 132px);width:86px;height:86px}
 #hud.stick #b-brake{right:auto;left:calc(var(--sl) + 132px);bottom:calc(var(--sb) + 96px);width:86px;height:42px}
-#hud.stick #rud{left:84px}
-#hud.stick #status{left:calc(50% + 42px)}
-#stage.narrow #status{gap:8px;padding:6px 9px}
-#stage.narrow #status .opt{display:none}
-#stage.narrow #hop{width:48px}
 
 /* ---------- telas ---------- */
 .panel{position:absolute;left:0;top:0;width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;padding:10px var(--sr) 10px var(--sl);background:linear-gradient(90deg,rgba(8,14,10,.78),rgba(8,14,10,.25) 70%,rgba(8,14,10,0))}
@@ -132,20 +115,17 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
   <canvas id="gl"></canvas>
 
   <div id="hud" class="hidden stick">
-    <div class="inst" id="i-spd"><span class="lbl">VEL</span><b id="h-spd">0</b><span class="u">kt</span></div>
-    <div id="h-cov"></div>
+    <canvas class="tape" id="tp-spd" aria-label="Velocidade indicada em nós"></canvas>
     <div id="h-dmg"></div>
-    <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div></div>
-    <div class="inst" id="i-alt"><span class="lbl">ALT</span><b id="h-alt">0</b><span class="u">ft</span></div>
+    <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div><div id="info"><span>HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span><span id="h-cov"></span></div></div>
+    <canvas class="tape" id="tp-alt" aria-label="Altura sobre o solo em pés"></canvas>
     <button class="btn" id="b-cam" type="button" aria-label="Trocar câmera">CAM</button>
     <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
     <div id="warn"></div>
     <div id="msg" class="hidden"></div>
     <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-rev"></div><div id="thr-fill"></div><div id="thr-idle"></div><div id="thr-knob">PWR</div></div></div>
-    <div id="status"><span>TQ <b id="h-tq">0</b>%</span><span>G <b id="h-g">1,0</b></span><span class="opt">HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span></div>
     <div id="flap" role="slider" aria-label="Alavanca de flape" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"><div id="flap-lbl">FLAPE</div><div id="flap-track"><i></i><i></i><i></i><div id="flap-knob">1</div></div></div>
     <button class="btn" id="b-brake" type="button">FREIO</button>
-    <div id="rud"><button class="btn ped" id="ped-l" type="button" aria-label="Pedal esquerdo">&#9664; PÉ</button><div id="rud-bar" role="slider" aria-label="Leme"><div id="rud-mid"></div><div id="rud-knob"></div></div><button class="btn ped" id="ped-r" type="button" aria-label="Pedal direito">PÉ &#9654;</button></div>
     <button class="btn" id="b-spray" type="button" aria-pressed="false">APLICAR</button>
     <div id="joy" aria-label="Manche"><div id="joy-knob"></div></div>
   </div>
@@ -157,7 +137,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
       <ol>
         <li>Flape 1, potência total, puxe ao passar de 75 kt.</li>
         <li>Recolha o flape, desça a 10 ft sobre a lavoura e ligue a aplicação entre 105 e 125 kt.</li>
-        <li>Siga a guia de faixa (24 m), suba antes das árvores e da rede elétrica, e pouse de volta.</li>
+        <li>Siga a guia de faixa (24 m), suba antes das árvores e da rede elétrica, e pouse de volta. Freio e reverso para parar.</li>
       </ol>
       <div class="row">
         <button class="cta" id="m-tilt" type="button">Pilotar inclinando o iPhone</button>
@@ -233,11 +213,11 @@ var AC = {
   Ixx: 16000, Iyy: 14000, Izz: 28000,
   P: 559000 * 0.72,                       // 750 shp x rendimento da hélice
   Ts: 11000,                              // tração estática (N)
-  CL0: 0.25, CLA: 5.2, aStall: 17 * D2R, aStallNeg: -13 * D2R, aWarn: 12 * D2R,
+  CL0: 0.25, CLA: 5.2, aStall: 20 * D2R, aStallNeg: -13 * D2R, aWarn: 15 * D2R,
   flapCL: [0, 0.30, 0.68], flapCD: [0, 0.012, 0.045],
   CD0: 0.050, K: 0.047,
   CMA: -0.9, CMQ: -14, CMDE: 0.16,
-  CLDA: 0.05, CLP: -0.45, CLB: -0.06, CLR: 0.06,
+  CLDA: 0.085, CLP: -0.45, CLB: -0.06, CLR: 0.06,
   CNB: 0.09, CNR: -0.13, CNDR: 0.05, CNDA: -0.004,
   CYB: -0.6,
   thetaGround: 9 * D2R,
@@ -333,7 +313,7 @@ Flight.prototype._ground = function (dt, c, wind) {
     this.vf = Math.max(nv, -3);
   }
   // direção pela bequilha / leme
-  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll * 0.6, -1, 1);
+  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll, -1, 1);
   if (this.belly) steer = 0; else if (this.dmg.gear === 1) steer = clamp(steer + 0.2 * Math.min(1, av / 8), -1, 1);   // trem avariado puxa para um lado
   var yr = steer * 0.55 * (1 + 0.8 * brk / (1 + av / 6)) * Math.min(1, av / 5) / (1 + av / 22) * (this.vf < 0 ? -1 : 1);
   this.psi += yr * dt;
@@ -383,14 +363,19 @@ Flight.prototype._air = function (dt, c, wind) {
     var ge = c.pitch * 25 * D2R - this.gamma;
     this.gI = clamp((this.gI || 0) + ge * dt * 1.5, -0.3, 0.3);
     de = 4.5 * ge + this.gI - 0.4 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
-    if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 10;
+    if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 25;             // proteção de ângulo de ataque
     de = clamp(de, -1, 1);
-    da = clamp(2.4 * (c.roll * 65 * D2R - this.phi) - 0.45 * this.p, -1, 1);
+    // inclinação comandada até 75°, limitada ao que a asa sustenta em curva nivelada com a velocidade e o peso atuais
+    var nAv = qS * (co.cl0 + AC.CLA * AC.aWarn) * (nW ? 0.5 : 1) / W;
+    var phiMax = nAv > 1.06 ? Math.min(75 * D2R, Math.acos(1 / (nAv * 0.95))) : 0.2;
+    phiMax = Math.min(phiMax, Math.asin(clamp((this.pos.y - this.groundY - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
+    this.phiMax = phiMax;
+    da = clamp(3.0 * (clamp(c.roll * 75 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);
   } else { de = clamp(c.pitch, -1, 1); da = clamp(c.roll, -1, 1); }
   // compensador automático (mantém ~1 g com o manche neutro)
-  var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.4) : 1);
-  var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 11 * D2R);
-  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.6 : 1.5));
+  var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.25) : 1);
+  var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 14 * D2R);
+  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.35 : 1.5));
   var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
   var dr = clamp(0.45 * ped + (1 - Math.abs(ped)) * 4 * beta - 0.6 * this.r, -1, 1);
   var eff = (1 - 0.6 * co.sig) * (nW ? 0.45 : 1);
@@ -1087,6 +1072,7 @@ function makeAudio(c) {
     stage.style.width = SW + 'px'; stage.style.height = SH + 'px'; stage.classList.toggle('rot', rotated);
     stage.classList.toggle('short', SH < 330); stage.classList.toggle('narrow', SW < 720);
     renderer.setSize(SW, SH, false); camera.aspect = SW / SH; camera.updateProjectionMatrix();
+    sizeTapes();
     spray.mat.uniforms.uScale.value = fire.mat.uniforms.uScale.value = smoke.mat.uniforms.uScale.value = SH * PR / (2 * Math.tan(camera.fov * D2R / 2));
   }
   window.addEventListener('resize', layout); window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
@@ -1135,7 +1121,7 @@ function makeAudio(c) {
   // ---------- entradas na tela ----------
   var joy = { x: 0, y: 0, id: null }, keys = {}, kStick = { x: 0, y: 0 };
   var thrHeld = function () { return false; };
-  var P0 = 0.2, lever = P0, reverse = 0, brake = 0, rud = { bar: 0, id: null, l: 0, r: 0, val: 0 };
+  var P0 = 0.2, lever = P0, reverse = 0, brake = 0;
   function expo(x) { var d = 0.04, a = Math.abs(x); if (a < d) return 0; a = (a - d) / (1 - d); return (x < 0 ? -1 : 1) * Math.pow(Math.min(a, 1), 1.35); }
   // manete: batente de marcha lenta em 20% do curso; abaixo dele é reverso, liberado só no solo
   function setLever(p) {
@@ -1159,15 +1145,9 @@ function makeAudio(c) {
     fl.addEventListener('pointerdown', function (e) { fid = e.pointerId; try { fl.setPointerCapture(fid); } catch (x) { } fm(e); e.preventDefault(); });
     fl.addEventListener('pointermove', function (e) { if (e.pointerId === fid) fm(e); });
     var fu = function (e) { if (e.pointerId === fid) fid = null; }; fl.addEventListener('pointerup', fu); fl.addEventListener('pointercancel', fu);
-    // pedais: toque nos pedais (curso total) ou arraste na barra (proporcional, volta ao centro)
-    var rb = $('rud-bar'), rm = function (e) { var r = stageRect(rb), p = stagePt(e); rud.bar = clamp((p.x - r.x - r.w / 2) / (r.w / 2 - 20), -1, 1); };
-    rb.addEventListener('pointerdown', function (e) { rud.id = e.pointerId; try { rb.setPointerCapture(rud.id); } catch (x) { } rm(e); e.preventDefault(); });
-    rb.addEventListener('pointermove', function (e) { if (e.pointerId === rud.id) rm(e); });
-    var ru = function (e) { if (e.pointerId === rud.id) { rud.id = null; rud.bar = 0; } }; rb.addEventListener('pointerup', ru); rb.addEventListener('pointercancel', ru);
     var hold = function (id, on, off) { var b = $(id), pid = null;
       b.addEventListener('pointerdown', function (e) { pid = e.pointerId; try { b.setPointerCapture(pid); } catch (x) { } on(); b.classList.add('on'); e.preventDefault(); });
       var u = function (e) { if (e.pointerId === pid) { pid = null; off(); b.classList.remove('on'); } }; b.addEventListener('pointerup', u); b.addEventListener('pointercancel', u); };
-    hold('ped-l', function () { rud.l = 1; }, function () { rud.l = 0; }); hold('ped-r', function () { rud.r = 1; }, function () { rud.r = 0; });
     hold('b-brake', function () { setBrake(true); }, function () { setBrake(false); });
     var j = $('joy');
     var jm = function (e) { var r = stageRect(j), p = stagePt(e), R = r.w / 2 - 22; joy.x = clamp((p.x - r.x - r.w / 2) / R, -1, 1); joy.y = clamp((p.y - r.y - r.h / 2) / R, -1, 1); var l = Math.sqrt(joy.x * joy.x + joy.y * joy.y); if (l > 1) { joy.x /= l; joy.y /= l; } $('joy-knob').style.transform = 'translate(' + (joy.x * R) + 'px,' + (joy.y * R) + 'px)'; };
@@ -1192,9 +1172,6 @@ function makeAudio(c) {
   function readInput(dt) {
     if (keys.KeyW || keys.PageUp) setLever(lever + dt * 0.6); if (keys.KeyS || keys.PageDown) setLever(lever - dt * 0.6);
     if (reverse > 0 && (!flight.onGround || (!thrHeld() && !keys.KeyS && !keys.PageDown))) setLever(P0);       // reverso com mola: solta e volta ao batente
-    var rt = clamp(rud.bar + rud.r - rud.l + (keys.KeyE ? 1 : 0) - (keys.KeyQ ? 1 : 0), -1, 1);
-    rud.val += (rt - rud.val) * Math.min(1, dt * 7);
-    $('rud-knob').style.transform = 'translateX(' + (rud.val * 100) + '%)';
     var kx = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ky = (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0), k = Math.min(1, dt * 5);
     kStick.x += (kx - kStick.x) * k; kStick.y += (ky - kStick.y) * k;
     var roll, pitch;
@@ -1207,7 +1184,7 @@ function makeAudio(c) {
     } else { roll = expo(joy.x); pitch = expo(joy.y); }
     if (opt.invert) pitch = -pitch;
     roll = clamp(roll + kStick.x, -1, 1); pitch = clamp(pitch + kStick.y, -1, 1);
-    ctl.throttle = throttle; ctl.reverse = reverse; ctl.brake = Math.max(brake, keys.KeyB ? 1 : 0); ctl.yaw = rud.val; ctl.roll = roll; ctl.pitch = pitch; ctl.assist = opt.assist;
+    ctl.throttle = throttle; ctl.reverse = reverse; ctl.brake = Math.max(brake, keys.KeyB ? 1 : 0); ctl.yaw = 0; ctl.roll = roll; ctl.pitch = pitch; ctl.assist = opt.assist;
     ctl.mu = (Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL) ? 0.045 : 0.09;
   }
 
@@ -1245,7 +1222,46 @@ function makeAudio(c) {
     });
     return best;
   }
+  // ---------- fitas de velocidade e altura (estilo PFD) ----------
+  var tpS = $('tp-spd'), tpA = $('tp-alt'), gS = tpS.getContext('2d'), gA = tpA.getContext('2d'), tpW = 66, tpH = 150, altFine = true;
+  var INK = '#eef3ea', FNT = '"B612 Mono", ui-monospace, Menlo, monospace';
+  function sizeTapes() { tpH = Math.round(clamp(SH * 0.42, 120, 190)); [tpS, tpA].forEach(function (c) { c.style.height = tpH + 'px'; c.width = Math.round(tpW * PR); c.height = Math.round(tpH * PR); }); }
+  function drawTape(g, val, o) {
+    var Wd = tpW, Hd = tpH, mid = Hd / 2, v, y, k;
+    g.setTransform(PR, 0, 0, PR, 0, 0); g.clearRect(0, 0, Wd, Hd);
+    g.fillStyle = 'rgba(10,18,14,0.62)'; g.fillRect(0, 0, Wd, Hd);
+    for (k = 0; k < o.bands.length; k++) {                        // faixas coloridas na borda dos traços
+      var y0 = clamp(mid - (o.bands[k][1] - val) * o.ppu, 0, Hd), y1 = clamp(mid - (o.bands[k][0] - val) * o.ppu, 0, Hd);
+      if (y1 > y0) { g.fillStyle = o.bands[k][2]; g.fillRect(o.left ? Wd - 6 : 0, y0, 6, y1 - y0); }
+    }
+    g.strokeStyle = 'rgba(238,243,234,0.85)'; g.fillStyle = INK; g.lineWidth = 1.4; g.font = '12px ' + FNT; g.textBaseline = 'middle'; g.textAlign = o.left ? 'right' : 'left';
+    var span = mid / o.ppu; g.beginPath();
+    for (v = Math.ceil((val - span) / o.minor) * o.minor; v <= val + span; v += o.minor) {
+      if (v < 0) continue; y = mid - (v - val) * o.ppu; var major = v % o.major === 0, len = major ? 11 : 6;
+      if (o.left) { g.moveTo(Wd - 6 - len, y); g.lineTo(Wd - 6, y); } else { g.moveTo(6, y); g.lineTo(6 + len, y); }
+      if (major && Math.abs(y - mid) > 22 && y < Hd - 20 && y > 7) g.fillText(v, o.left ? Wd - 21 : 21, y + 0.5);
+    }
+    g.stroke();
+    g.beginPath();                                               // janela do valor atual, com a seta apontando para os traços
+    if (o.left) { g.moveTo(2, mid - 16); g.lineTo(Wd - 14, mid - 16); g.lineTo(Wd - 14, mid - 6); g.lineTo(Wd - 6, mid); g.lineTo(Wd - 14, mid + 6); g.lineTo(Wd - 14, mid + 16); g.lineTo(2, mid + 16); }
+    else { g.moveTo(Wd - 2, mid - 16); g.lineTo(14, mid - 16); g.lineTo(14, mid - 6); g.lineTo(6, mid); g.lineTo(14, mid + 6); g.lineTo(14, mid + 16); g.lineTo(Wd - 2, mid + 16); }
+    g.closePath(); g.fillStyle = '#050807'; g.fill(); g.strokeStyle = o.color || INK; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = o.color || INK; g.font = '700 21px ' + FNT; g.textAlign = 'center'; g.fillText(o.text, o.left ? (Wd - 12) / 2 : (Wd + 12) / 2, mid + 1);
+    g.font = '9px ' + FNT; g.fillStyle = '#a9b8ac'; g.fillText(o.label, Wd / 2, Hd - 8);
+  }
+  function drawTapes() {
+    var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = Math.max(0, flight.agl * M2FT);
+    var fp = flight.flapPos, clm = 1.72 + (fp <= 1 ? 0.28 * fp : 0.28 + 0.36 * (fp - 1));
+    var vs = Math.sqrt(2 * flight.mass() * G / (1.225 * AC.S * clm)) * MS2KT, low = !flight.onGround && kt < vs + 6;
+    drawTape(gS, kt, { left: true, ppu: 2.3, minor: 5, major: 10, label: 'KT', text: Math.round(kt), color: low ? '#ff5b4d' : null,
+      bands: [[0, vs, '#ff5b4d'], [105, 125, '#7be36a']] });                               // vermelho: abaixo do estol; verde: velocidade de aplicação
+    if (altFine && ft > 150) altFine = false; else if (!altFine && ft < 110) altFine = true;
+    drawTape(gA, ft, altFine ? { left: false, ppu: 2.6, minor: 5, major: 10, label: 'FT AGL', text: Math.round(ft), bands: [[5, 23, '#7be36a']] }
+      : { left: false, ppu: 0.5, minor: 20, major: 100, label: 'FT AGL', text: Math.round(ft / 10) * 10, bands: [[5, 23, '#7be36a']] });   // verde: altura de aplicação
+  }
+
   function updateHud(dt) {
+    drawTapes();
     var tick = (hudT -= dt) <= 0; if (tick) hudT = 0.1;
     var g = guidance(), on = -1, cls = '';
     if (g && !flight.onGround) {
@@ -1259,10 +1275,8 @@ function makeAudio(c) {
     if (on !== ledOn || $('lb-leds').className !== cls) { if (ledOn >= 0) leds[ledOn].classList.remove('lit'); if (on >= 0) leds[on].classList.add('lit'); ledOn = on; $('lb-leds').className = cls; }
     if (!tick) return;
     var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.agl * M2FT;
-    $('h-spd').textContent = Math.round(kt); $('h-alt').textContent = ft < 60 ? Math.round(ft) : Math.round(ft / 10) * 10;
-    $('h-tq').textContent = Math.round(flight.pow * 100); $('h-g').textContent = fmt(flight.nz, 1);
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
-    $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join('  ');
+    $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join(' ');
     var dm = flight.dmg, dl = []; if (dm.gear === 1) dl.push('TREM AVARIADO'); if (dm.gear === 2) dl.push('SEM TREM'); if (dm.wingL) dl.push('ASA E'); if (dm.wingR) dl.push('ASA D'); if (dm.engine) dl.push('MOTOR'); if (dm.fire) dl.push('FOGO'); if (dm.tail) dl.push('CAUDA');
     $('h-dmg').textContent = dl.join(' · ');
     var w = '', wc2 = '';
@@ -1278,13 +1292,13 @@ function makeAudio(c) {
   function resetGame() {
     flight.reset(START); resetFields(); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
-    setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
+    setThrottle(0); setBrake(false); paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    say('Flape 1 armado. Potência total e puxe ao passar de 75 kt. Pedais para manter o eixo.', 7);
+    say('Flape 1 armado. Potência total e puxe ao passar de 75 kt.', 6);
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
   function pause(on) {
@@ -1508,7 +1522,7 @@ function makeAudio(c) {
     requestAnimationFrame(frame);
   }
   layout(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, setFlap: setFlap, rud: rud, opt: opt, fields: FIELDS, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, setFlap: setFlap, opt: opt, fields: FIELDS, stats: stats };
 })();
 
 </script>
