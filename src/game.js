@@ -193,11 +193,11 @@
   // ---------- Naldinho: instrutor da primeira missão, fala em caixa de diálogo ----------
   var talkQ = [], talkT = 0, said = {};
   if (typeof NALDINHO_URI === 'string' && NALDINHO_URI) { $('nal-img').src = NALDINHO_URI; $('nal-pic').classList.add('has'); }
-  function talk(text, key, now) { if (free) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push(text); }
+  function talk(text, key, now, delay) { if (free) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push({ t: text, at: simT + (delay || 0) }); }
   function updateTalk(dt) {
     if (talkT > 0) { talkT -= dt; if (talkT <= 0) { show('nal', false); $('hud').classList.remove('talk'); talkT = talkQ.length ? -0.35 : 0; } }
     else if (talkT < 0) { talkT = Math.min(0, talkT + dt); }
-    if (talkT === 0 && talkQ.length) { var t = talkQ.shift(); $('nal-t').textContent = t; show('msg', false); msgT = 0; show('nal', true); $('hud').classList.add('talk'); talkT = clamp(2.6 + t.length * 0.055, 4, 9.5); sfx('valve', 1); }
+    if (talkT === 0 && talkQ.length && talkQ[0].at <= simT) { var t = talkQ.shift().t; $('nal-t').textContent = t; show('msg', false); msgT = 0; show('nal', true); $('hud').classList.add('talk'); talkT = clamp(2.0 + t.length * 0.05, 3, 4.8); sfx('valve', 1); }
   }
   $('nal').addEventListener('click', function () { if (talkT > 0.2) talkT = 0.05; });
   function ref() { if (!free) return mission; var b = FIELDS[0], bd = 1e9; FIELDS.forEach(function (f) { var d = fieldDist(f); if (d < bd) { bd = d; b = f; } }); return b; }
@@ -265,11 +265,11 @@
   function swQ(f, i) { return clamp(f.sw[i] / (SWATH * f.len), 0, 1); }
   function evaluate(f) {                                           // fim de uma passagem: paga o bônus das faixas que subiram de categoria
     if (f.passAll > SWATH * 150 && f.passLow / f.passAll >= 0.7) award(60, 1, 'Rasante: abaixo de 20 ft', 2); f.passAll = f.passLow = 0;
-    talk('Desliga e puxa! Agora é o balão: abre pro lado que a seta mandar, deita a asa e volta alinhado na próxima faixa.', 'balao');
+    talk('Agora o balão: vai pro lado da seta.', 'balao');
     for (var i = 0; i < f.nSw; i++) {
       var q = swQ(f, i), t = q >= TIER[3].q ? 3 : (q >= TIER[2].q ? 2 : (q >= TIER[1].q ? 1 : 0));
-      if (t > f.tier[i]) { if (t === 3) talk('Faixa perfeita! Tá voando igual gente grande, comandante.', 'q3'); else talk('Valeu, mas faltou cobrir um pedaço. Liga a aplicação antes da cabeceira e só desliga depois do fim.', 'q12'); var o = f.tier[i]; award(TIER[t].c - (o ? TIER[o].c : 0), TIER[t].xp - (o ? TIER[o].xp : 0), TIER[t].t + ' · ' + Math.round(q * 100) + '%', t); f.tier[i] = t; }
-      else if (f.touched[i] && t === 0 && q > 0.15) say('Faixa ' + (i + 1) + ' incompleta: ' + Math.round(q * 100) + '%. Faltou cobrir para ganhar o bônus.', 4);
+      if (t > f.tier[i]) { var o = f.tier[i]; award(TIER[t].c - (o ? TIER[o].c : 0), TIER[t].xp - (o ? TIER[o].xp : 0), TIER[t].t + ' · ' + Math.round(q * 100) + '%', t); f.tier[i] = t; }
+      else if (f.touched[i] && t === 0 && q > 0.15) say('Faixa ' + (i + 1) + ' incompleta: ' + Math.round(q * 100) + '%.', 3);
       f.touched[i] = 0;
     }
     if (!f.done) { for (i = 0; i < f.nSw; i++) if (!f.tier[i]) return;
@@ -293,7 +293,7 @@
     }
     // faixa-alvo: a que está sendo aplicada; fora dela, a pendente mais próxima
     var pass = null;
-    if (spraying && !flight.onGround) for (i = 0; i < ACTIVE.length; i++) { f = ACTIVE[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { talk('Isso! Segura a altura e mantém o avião no meio da faixa amarela. Abaixo de 20 pés paga em dobro, mas só se estiver na mão.', 'spray'); pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
+    if (spraying && !flight.onGround) for (i = 0; i < ACTIVE.length; i++) { f = ACTIVE[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { talk('Isso! Segura a altura no meio da faixa.', 'spray'); pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
     tgtT -= dt;
     if (pass) { if (!tgt || tgt.f !== pass.f || tgt.i !== pass.i) { tgt = pass; world.setLane(tgt.f, tgt.i); } tgtT = 1.2; }
     else if (tgtT <= 0) { tgtT = 0.4; var n = pickTarget(); if ((n && (!tgt || n.f !== tgt.f || n.i !== tgt.i)) || (!n && tgt)) { tgt = n; world.setLane(n && n.f, n && n.i); } }
@@ -314,11 +314,11 @@
     nav.land = flight.hopper <= 0 || flight.dmg.engine || flight.dmg.gear > 0 || (free ? ACTIVE.every(function (x) { return x.done; }) : f.done);
     var df = fieldDist(f), dr = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(clamp(flight.pos.z, -RWY_HL, RWY_HL) - flight.pos.z, 2));
     // talhão: o pino aparece até chegar; na chegada mostra o nome e some
-    if (nav.at !== f && df < 260 && air) { nav.at = f; banner(f.farm, f.name + ' · ' + f.prod + ' · ' + f.nSw + ' faixas'); talk('Chegou! Desce pra menos de 65 pés, alinha na faixa amarela e liga a aplicação na cabeceira.', 'arrive'); }
+    if (nav.at !== f && df < 260 && air) { nav.at = f; banner(f.farm, f.name + ' · ' + f.prod + ' · ' + f.nSw + ' faixas'); talk('Desce, alinha na faixa amarela e liga.', 'arrive', false, 3.8); }
     else if (nav.at === f && df > 1300) nav.at = null;
     pinF.visible = state === 'play' && !free && !nav.land && nav.at !== f; if (pinF.visible) pinF.position.set(f.cx, 70 + bob, f.cz);
     // pista: pino quando é hora de voltar
-    if (nav.land && !nav.atRwy && dr < 420 && air) { nav.atRwy = true; banner('Pista Scheffer', 'Sapezal - MT · pouse e pare na pista'); talk('Flape 2, reduz pra uns 70 nós na final e deixa assentar macio. Depois do toque, freio e reverso.', 'final'); }
+    if (nav.land && !nav.atRwy && dr < 420 && air) { nav.atRwy = true; banner('Pista Scheffer', 'Sapezal - MT · pouse e pare na pista'); talk('Flape 2, 70 nós e pouso macio.', 'final', false, 3.8); }
     else if (nav.atRwy && dr > 1300) nav.atRwy = false;
     pinR.visible = state === 'play' && nav.land && !nav.atRwy && air; if (pinR.visible) pinR.position.y = 55 + bob;
     if (nav.bnT > 0) { nav.bnT -= dt; if (nav.bnT <= 0) show('banner', false); }
@@ -404,8 +404,8 @@
     $('h-dmg').textContent = dl.join(' · ');
     var w = '', wc2 = '';
     if (dm.fire) { w = 'FOGO NO MOTOR'; wc2 = 'bad'; }
-    else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; talk('Olha a velocidade! Nariz pra baixo e manete à frente.', 'stall', true); }
-    else if (spraying && flight.agl > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; talk('Tá alto, comandante! Acima de 65 pés o produto vai embora no vento.', 'high'); }
+    else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; }
+    else if (spraying && flight.agl > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; }
     else if (!flight.onGround && flight.agl < 2.2 && flight.vel.y < -0.5) { w = 'SOLO'; wc2 = 'bad'; }
     $('warn').textContent = w; $('warn').className = wc2;
   }
@@ -422,7 +422,7 @@
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
     if (free) say('Voo livre. Hopper cheio: os três talhões aceitam aplicação.', 6);
-    else { talk('Fala, comandante! Aqui é o Naldinho, teu instrutor. Hoje é ' + mission.prod + ' no ' + mission.name + ' da ' + mission.farm + '.', 'hello'); talk('Taxia pelos pedais, flape 1, manete toda à frente e puxa com 75 nós. Depois é só seguir o pino verde.', 'takeoff'); }
+    else { talk('Fala, comandante! Hoje é o ' + mission.name + ', ' + mission.farm.replace('Fazenda ', '') + '.', 'hello'); talk('Flape 1, manete à frente, puxa com 75 nós.', 'takeoff'); }
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
   function pause(on) {
@@ -459,7 +459,7 @@
     $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (free ? 'Voo livre encerrado' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')));
     var nq = '';
     if (!free) { if (mission.done && !wallet.tut) { wallet.tut = true; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push('Voo livre liberado'); }
-      nq = crash ? 'Naldinho: “Avião a gente conserta, comandante. O importante é aprender onde errou. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “O talhão ficou pronto, mas o avião voltou torto. Na próxima, capricha no pouso.”' : 'Naldinho: “Missão cumprida, comandante! Agora o céu é teu: o voo livre está liberado.”') : 'Naldinho: “Ficou faixa sem fazer. Volta lá e fecha o talhão que eu libero o voo livre.”'); }
+      nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! O voo livre é teu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
     $('end-nal').textContent = nq; show('end-nal', !!nq);
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
     $('end-body').innerHTML = '<table><thead><tr><th></th><th>Cobertura</th><th>Sobreposição</th></tr></thead><tbody>' + rows + '</tbody></table>' +
@@ -565,7 +565,7 @@
   function onEvent(ev) {
     var dm = flight.dmg;
     if (ev === 'touch') sfx('touch', flight.lastSink);
-    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (free) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche parado e deixa ele assentar sozinho.', 'bounce', true); }
+    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (free) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche.', 'bounce', true); }
     else if (ev === 'gearDamage') { sfx('crunch'); say('Pouso duro: trem de pouso avariado. O próximo toque forte derruba o trem.', 6); }
     else if (ev === 'gearCollapse') { sfx('crunch'); plane.gearParts.forEach(function (m) { m.visible = false; }); say('O trem de pouso cedeu.', 5); }
     else if (ev === 'slide') { sfx('crunch'); toggleSpray(false); }
@@ -590,7 +590,7 @@
     for (var si = 0; si < n; si++) { flight.step(h, ctl, windNow); if (!flight.crashed && !flight.onGround) hitWires(); }
     if (!flight.crashed && (!flight.onGround || Math.abs(flight.vf) > 3)) hitObjects();
     while (flight.events.length) onEvent(flight.events.shift());
-    if (flight.onGround !== wasGround) { if (!flight.onGround) { sfx('lift'); talk('Saiu do chão! Recolhe o flape e segue o arco até o pino verde.', 'lift', true); } wasGround = flight.onGround; }
+    if (flight.onGround !== wasGround) { if (!flight.onGround) { sfx('lift'); talk('Recolhe o flape e segue o pino verde.', 'lift', true); } wasGround = flight.onGround; }
     if (flight.crashed) { wreckT += dt; if (wreckT > 3.2) finish(flight.crashed); return; }
     // aplicação
     if (spraying && flight.hopper > 0) {
@@ -612,7 +612,7 @@
     ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
     if (free && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
-    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer: siga o pino branco e o arco.', tier: 2 }); talk('Talhão fechado! Agora volta pra casa: pino branco, Pista Scheffer.', 'home'); }
+    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; if (free) rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer.', tier: 2 }); talk('Talhão fechado! Volta pra pista.', 'home'); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
