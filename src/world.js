@@ -5,9 +5,15 @@ function col(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
 var SWATH = 30, RWY_HW = 11, RWY_HL = 450, GROUND_HALF = 2048;
 // Cada missão é um talhão de uma fazenda. Faixas de 30 m; a largura dá meia volta de balão entre a faixa i e a i + n/2.
 var FIELDS = [
-  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 120, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 } },
-  { farm: 'Fazenda Santa Luzia', name: 'Talhão 12', prod: 'fungicida', rate: 30, lvl: 2, cx: 900, cz: -900, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 } },
-  { farm: 'Fazenda Boa Esperança', name: 'Talhão 3', prod: 'dessecante', rate: 25, lvl: 3, cx: 1000, cz: 900, len: 1100, wid: 480, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 1, treesU: -1 } }
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 120, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 }, brief: '' },
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 4', prod: 'fungicida', rate: 30, lvl: 2, cx: -1250, cz: -400, len: 800, wid: 180, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 1 }, brief: 'Talhão 4, piloto. Olha a mata no fim da faixa!' },
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 9', prod: 'inseticida', rate: 30, lvl: 3, cx: -1100, cz: 700, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 }, brief: 'Talhão 9. Tem rede do lado, piloto!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 2', prod: 'fungicida', rate: 30, lvl: 4, cx: 900, cz: -900, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1 }, brief: 'Iracema, Talhão 2. Rede no fim da faixa!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 11', prod: 'herbicida', rate: 25, lvl: 5, cx: 1600, cz: -500, len: 1000, wid: 300, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 2 }, brief: 'Talhão 11. Mata nas duas pontas, piloto!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 5', prod: 'inseticida', rate: 30, lvl: 6, cx: 900, cz: -1500, len: 1100, wid: 360, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: -1, treesW: -1 }, brief: 'Talhão 5. Rede na ponta e mata do lado!' },
+  { farm: 'Fazenda São João', name: 'Talhão 3', prod: 'fungicida', rate: 30, lvl: 7, cx: 500, cz: 1100, len: 700, wid: 300, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 2 }, brief: 'São João, Talhão 3. Faixa curta, capricha!' },
+  { farm: 'Fazenda São João', name: 'Talhão 8', prod: 'dessecante', rate: 25, lvl: 8, cx: 1000, cz: 1200, len: 1000, wid: 360, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 2 }, brief: 'Talhão 8. Rede nas duas pontas, piloto!' },
+  { farm: 'Fazenda São João', name: 'Talhão 1', prod: 'dessecante', rate: 25, lvl: 9, cx: 1100, cz: 330, len: 1200, wid: 420, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1, treesU: -1, wiresW: -1 }, brief: 'Talhão 1, o maior. Rede e mata, piloto!' }
 ];
 var ACTIVE = [];                                                  // o talhão da missão em curso
 var SUN = new THREE.Vector3(0.52, 0.66, -0.38).normalize();
@@ -237,18 +243,19 @@ function buildWorld(scene, aniso) {
     }
     return false;
   };
-  var tree = function (x, z, h, force) { if (!force && blocked(x, z)) return; T.push({ x: x, z: z, h: h, r: h * (0.30 + R() * 0.12) }); };
+  var tree = function (x, z, h, force, fld) { if (!force && blocked(x, z)) return; T.push({ x: x, z: z, h: h, r: h * (0.30 + R() * 0.12), f: fld || null }); };
+  var sides = function (v) { return v === 2 ? [-1, 1] : [v]; };
   var x, z, i, a, d;
   // quebra-ventos e redes elétricas de cada talhão, pela configuração da missão
   var P2 = function (f, u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, lines = [];
-  var treeRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 6.5); for (var k = 0; k <= n; k++) { var p = P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n); tree(p[0] + R() * 2, p[1] + R() * 2, 10 + R() * 5, true); } };
-  var poleRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 60), pts = []; for (var k = 0; k <= n; k++) pts.push(P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n)); lines.push(pts); };
+  var treeRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 6.5); for (var k = 0; k <= n; k++) { var p = P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n); tree(p[0] + R() * 2, p[1] + R() * 2, 10 + R() * 5, true, f); } };
+  var poleRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 60), pts = []; for (var k = 0; k <= n; k++) pts.push(P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n)); pts.f = f; lines.push(pts); };
   FIELDS.forEach(function (f) {
     var o = f.obs || {}, l = f.len / 2, h = f.wid / 2, e;
-    if (o.treesU) { e = o.treesU; treeRow(f, e * (l + 24), -h - 12, e * (l + 24), h + 12); treeRow(f, e * (l + 32), -h - 9, e * (l + 32), h + 9); }
-    if (o.treesW) { e = o.treesW; treeRow(f, -l, e * (h + 26), l, e * (h + 26)); treeRow(f, -l + 3, e * (h + 34), l - 3, e * (h + 34)); }
-    if (o.wiresW) { e = o.wiresW; poleRow(f, -l - 60, e * (h + 16), l + 60, e * (h + 16)); }
-    if (o.wiresU) { e = o.wiresU; poleRow(f, e * (l + 45), -h - 60, e * (l + 45), h + 60); }
+    if (o.treesU) sides(o.treesU).forEach(function (e) { treeRow(f, e * (l + 24), -h - 12, e * (l + 24), h + 12); treeRow(f, e * (l + 32), -h - 9, e * (l + 32), h + 9); });
+    if (o.treesW) sides(o.treesW).forEach(function (e) { treeRow(f, -l, e * (h + 26), l, e * (h + 26)); treeRow(f, -l + 3, e * (h + 34), l - 3, e * (h + 34)); });
+    if (o.wiresW) sides(o.wiresW).forEach(function (e) { poleRow(f, -l - 60, e * (h + 16), l + 60, e * (h + 16)); });
+    if (o.wiresU) sides(o.wiresU).forEach(function (e) { poleRow(f, e * (l + 45), -h - 60, e * (l + 45), h + 60); });
   });
   [[-1150, -950, 280, 130], [950, 560, 240, 110], [230, -1380, 250, 100], [-900, 900, 300, 120], [1500, -1100, 260, 90]].forEach(function (b) {
     for (i = 0; i < b[3]; i++) { a = R() * 6.283; d = Math.sqrt(R()) * b[2]; tree(b[0] + Math.cos(a) * d, b[1] + Math.sin(a) * d * 0.7, 9 + R() * 8); }
@@ -286,16 +293,16 @@ function buildWorld(scene, aniso) {
     var bx = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 };
     pts.forEach(function (p, k) {
       M.makeTranslation(p[0], 4.7, p[1]); poleM.setMatrixAt(pk, M); M.makeRotationY(ang); M.setPosition(p[0], WH + 0.05, p[1]); armM.setMatrixAt(pk, M); pk++;
-      T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true });
+      T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true, f: pts.f, pi: pk - 1 });
       bx.x0 = Math.min(bx.x0, p[0] - 14); bx.x1 = Math.max(bx.x1, p[0] + 14); bx.z0 = Math.min(bx.z0, p[1] - 14); bx.z1 = Math.max(bx.z1, p[1] + 14);
       if (k) for (var s = -1; s <= 1; s += 2) {
         var q = pts[k - 1], ax = q[0] + ox * s, az = q[1] + oz * s, cx = p[0] + ox * s, cz = p[1] + oz * s, mx = (ax + cx) / 2, mz = (az + cz) / 2;
         ballM.setMatrixAt(W.wires.length, M.makeTranslation(mx, WH - 0.45, mz));
-        W.wires.push({ a: new THREE.Vector3(ax, WH, az), b: new THREE.Vector3(cx, WH, cz) });
+        W.wires.push({ a: new THREE.Vector3(ax, WH, az), b: new THREE.Vector3(cx, WH, cz), f: pts.f });
         lp.push(ax, WH, az, mx, WH - 0.45, mz, mx, WH - 0.45, mz, cx, WH, cz);
       }
     });
-    W.wireBoxes.push(bx);
+    bx.f = pts.f; W.wireBoxes.push(bx);
   });
   poleM.count = armM.count = nP; ballM.count = nS;
   var lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp.length ? lp : [0, 0, 0, 0, 0, 0], 3));
@@ -305,6 +312,17 @@ function buildWorld(scene, aniso) {
     var w = W.wires[i], a = lg.attributes.position; if (w.cut) return; w.cut = true;
     a.setY(i * 4 + 1, 0.15); a.setY(i * 4 + 2, 0.15); a.needsUpdate = true;
     M.makeTranslation((w.a.x + w.b.x) / 2, 0.32, (w.a.z + w.b.z) / 2); ballM.setMatrixAt(i, M); ballM.instanceMatrix.needsUpdate = true;
+  };
+  var base = null, zero = function (m, k) { m.instanceMatrix.array.fill(0, k * 16, k * 16 + 16); };
+  W.setObstacles = function (act) {                            // quebra-ventos e redes só dos talhões em uso
+    var ms = [trunks, crowns, shads, poleM, armM]; if (!base) base = ms.map(function (m) { return m.instanceMatrix.array.slice(); });
+    ms.forEach(function (m, k) { m.instanceMatrix.array.set(base[k]); });
+    var on = function (f) { return !f || act.indexOf(f) >= 0; }, a = lg.attributes.position, nt = 0;
+    T.forEach(function (t) { t.off = !on(t.f); if (t.pole) { if (t.off) { zero(poleM, t.pi); zero(armM, t.pi); } return; } if (t.off) { zero(trunks, nt); zero(crowns, nt * 2); zero(crowns, nt * 2 + 1); zero(shads, nt); } nt++; });
+    W.resetWires();
+    W.wires.forEach(function (w, i) { w.off = !on(w.f); if (w.off) { for (var k = 0; k < 4; k++) a.setY(i * 4 + k, -50); zero(ballM, i); } });
+    W.wireBoxes.forEach(function (b) { b.off = !on(b.f); });
+    ms.forEach(function (m) { m.instanceMatrix.needsUpdate = true; }); ballM.instanceMatrix.needsUpdate = true; a.needsUpdate = true;
   };
   W.resetWires = function () {
     var a = lg.attributes.position; if (lp0.length) { a.array.set(lp0); a.needsUpdate = true; }

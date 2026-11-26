@@ -27,7 +27,7 @@
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
   var hint = { t: 0, flap: false, empty: false, done: false };
-  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0], free = false;
+  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0], free = false, nextM = null, tutor = function () { return !free && mission === FIELDS[0]; };
   var missionHa = function (f) { return f.len * f.wid / 10000; }, missionLoad = function (f) { return Math.min(1890, Math.ceil(missionHa(f) * f.rate * 1.06 / 50) * 50); };
   var rotated = false, SW = 2, SH = 1;
   var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion();
@@ -194,7 +194,7 @@
   // ---------- Naldinho: instrutor da primeira missão, fala em caixa de diálogo ----------
   var talkQ = [], talkT = 0, said = {};
   var bossSaid = {}, wasteT = 0, wasteSaid = -99, rich = 0, RICH = [1000, 2500, 5000, 10000, 20000];
-  function talk(text, key, now, delay) { if (free) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push({ t: text, at: simT + (delay || 0), who: 'nal' }); }
+  function talk(text, key, now, delay) { if (!tutor()) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push({ t: text, at: simT + (delay || 0), who: 'nal' }); }
   // Seu Eliseu, o patrão: comenta o serviço na missão e no voo livre. Humores: feliz, bravo, maroto.
   function boss(text, mood, key, now, gap) {                     // sem chave: cada frase tem o seu intervalo mínimo
     if (key) { if (said[key]) return; said[key] = 1; } else { if (simT - (bossSaid[text] || -99) < (gap === undefined ? 14 : gap)) return; bossSaid[text] = simT; }
@@ -261,8 +261,8 @@
   }
 
   // ---------- moedas, XP e orientação ----------
-  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0 };
-  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.tut = !!sv.tut; } } catch (e) { }
+  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0, prog: 0 };
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.prog = Math.min(FIELDS.length, sv.prog || (sv.tut ? 1 : 0)); } } catch (e) { }
   var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
   var H_MAX = 20, H_LOW = 6.5, lowNow = false, plan = null;            // aplicação vale até 65 ft; até 21 ft é rasante e paga em dobro
   var COIN_M = 1, TIER = [null, { q: 0.72, c: 40, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 80, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 150, xp: 5, t: 'Faixa perfeita' }];
@@ -423,7 +423,7 @@
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    START.hopper = free ? 1890 : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
+    START.hopper = free ? 1890 : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.setObstacles(free ? FIELDS : [mission]); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; nav.at = null; nav.atRwy = nav.land = false; talkQ.length = 0; talkT = 0; said = {}; bossSaid = {}; wasteT = 0; wasteSaid = -99; rich = 0; show('nal', false); $('hud').classList.remove('talk'); nav.bnT = 0; show('banner', false); pinF.visible = pinR.visible = false; pinF.setText(mission.farm.toUpperCase(), mission.name.toUpperCase()); plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
@@ -431,7 +431,9 @@
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    if (free) say('Voo livre. Hopper cheio: os três talhões aceitam aplicação.', 6);
+    nextM = null;
+    if (free) say('Voo livre. Hopper cheio: todos os talhões aceitam aplicação.', 6);
+    else if (!tutor()) boss(mission.brief, 'maroto', 'b_brief');
     else { talk('Fala, comandante! Hoje é o ' + mission.name + ', ' + mission.farm.replace('Fazenda ', '') + '.', 'hello'); talk('Flape 1, manete à frente, puxa com 75 nós.', 'takeoff'); }
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
@@ -468,8 +470,11 @@
     rwQ.length = 0; show('reward', false); show('msg', false);
     $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (free ? 'Voo livre encerrado' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')));
     var nq = '';
-    if (!free) { if (mission.done && !wallet.tut) { wallet.tut = true; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push('Voo livre liberado'); }
-      nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! O voo livre é teu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
+    var mi = FIELDS.indexOf(mission); nextM = null;
+    if (!free) { if (mission.done && wallet.prog <= mi) { wallet.prog = mi + 1; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push(mi === 0 ? 'Missão 2 e voo livre liberados' : (mi + 1 < FIELDS.length ? 'Missão ' + (mi + 2) + ' liberada' : 'Todas as missões cumpridas')); }
+      if (mission.done && !crash && mi + 1 < FIELDS.length) nextM = FIELDS[mi + 1];
+      if (mi > 0) nq = crash ? 'Seu Eliseu: “Ó, piloto ruim, meu Deuuus!”' : (mission.done ? (bad ? 'Seu Eliseu: “Ê, piloto, vai me falir!”' : 'Seu Eliseu: “Ó, piloto bão! Vem tomar café da fazenda.”') : 'Seu Eliseu: “Ficou faixa sem fazer, piloto!”');
+      else nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! Agora é com o Seu Eliseu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
     if (free) nq = crash ? 'Seu Eliseu: “Ó, piloto ruim, meu Deuuus!”' : (bad ? 'Seu Eliseu: “Ê, piloto, vai me falir!”' : (mc >= 1000 ? 'Seu Eliseu: “Ó, piloto bão! Vem tomar café da fazenda.”' : ''));
     $('end-nal').textContent = nq; show('end-nal', !!nq);
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
@@ -479,18 +484,26 @@
       (notes.length ? '<p class="sub">' + notes.join(' · ') + '.</p>' : '') +
       '<p class="sub">Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv1 + '</p>';
     $('end-score').textContent = score;
+    $('e-again').textContent = nextM ? 'Próxima missão' : 'Voar de novo';
     $('end').classList.toggle('crash', bad); show('end', true);
   }
   function paintMissions() {
-    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40), f = FIELDS[0]; box.textContent = '';
-    if (free && !wallet.tut) free = false;
-    var add = function (title, desc, isFree, locked) {
-      var b = document.createElement('button'), sel = free === isFree; b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-      var t = document.createElement('b'); t.textContent = title; var d = document.createElement('span'); d.textContent = desc; b.appendChild(t); b.appendChild(d);
-      b.addEventListener('click', function () { free = isFree; paintMissions(); resetGame(); }); box.appendChild(b);
+    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40); box.textContent = '';
+    if (free && !wallet.prog) free = false; if (!free && FIELDS.indexOf(mission) > wallet.prog) mission = FIELDS[Math.min(wallet.prog, FIELDS.length - 1)];
+    var pick = function (f, isFree) { return function () { free = isFree; if (f) mission = f; paintMissions(); resetGame(); }; };
+    var btn = function (par, title, desc, sel, locked, fn) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      var t = document.createElement('b'); t.textContent = title; var d = document.createElement('span'); d.textContent = desc; b.appendChild(t); b.appendChild(d); b.addEventListener('click', fn); par.appendChild(b);
     };
-    add('Missão 1 · ' + f.farm, 'Com o instrutor Naldinho · ' + f.prod + ' no ' + f.name + ' · ' + (f.wid / SWATH) + ' faixas de ' + f.len + ' m' + (wallet.tut ? ' · concluída' : ''), false, false);
-    add('Voo livre', wallet.tut ? 'Hopper cheio e três talhões para aplicar à vontade' : 'Libera ao concluir a Missão 1', true, !wallet.tut);
+    var row = null, farm = '';
+    FIELDS.forEach(function (f, k) {
+      if (f.farm !== farm) { farm = f.farm; var h = document.createElement('p'); h.className = 'farm'; h.textContent = farm; box.appendChild(h); row = document.createElement('div'); row.className = 'mrow'; box.appendChild(row); }
+      var locked = k > wallet.prog; btn(row, (k < wallet.prog ? '✓ ' : '') + 'Missão ' + (k + 1), locked ? 'Bloqueada' : f.name + ' · ' + f.nSw + ' faixas', !free && mission === f, locked, pick(f, false));
+    });
+    var o = mission.obs || {}, ob = [];
+    if (o.treesU || o.treesW) ob.push('mata'); if (o.wiresU || o.wiresW) ob.push('rede elétrica');
+    $('m-info').textContent = free ? 'Voo livre: hopper cheio e todos os talhões para aplicar à vontade.' : mission.farm + ' · ' + mission.name + ' · ' + mission.prod + ' · ' + mission.nSw + ' faixas de ' + mission.len + ' m' + (ob.length ? ' · ' + ob.join(' e ') : '') + (tutor() ? ' · com o instrutor Naldinho' : '') + '.';
+    btn(box, 'Voo livre', wallet.prog ? 'Todos os talhões, hopper cheio' : 'Libera ao concluir a Missão 1', free, !wallet.prog, pick(null, true));
     $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
   function goFull() {
@@ -511,7 +524,7 @@
   tap('o-recal', function () { openCalib(true); });
   tap('p-restart', function () { startPlay(); });
   tap('p-end', function () { show('pause', false); finish(null); });
-  tap('e-again', function () { initAudio(); startPlay(); });
+  tap('e-again', function () { initAudio(); if (nextM) { mission = nextM; free = false; } startPlay(); });
   tap('e-menu', function () { show('end', false); paintMissions(); resetGame(); state = 'menu'; show('menu', true); });
   var optBtn = function (id, label, vals, get, set) {
     var el = $(id), paint = function () { el.textContent = label + ': ' + vals[get()]; }; paint();
@@ -528,7 +541,7 @@
   var segs = [[[-7.9, -0.3, -0.3], [7.9, -0.3, -0.3]], [[0, 0, -5.2], [0, 0.2, 4.9]], [[0, 0.3, 4.2], [0, 2.1, 4.6]], [[0, -1.9, -1.3], [0, 0, -1.3]]];
   function hitWires() {
     if (flight.pos.y > 14) return; var near = false, px = flight.pos.x, pz = flight.pos.z;
-    for (var bi = 0; bi < world.wireBoxes.length; bi++) { var bb = world.wireBoxes[bi]; if (px > bb.x0 && px < bb.x1 && pz > bb.z0 && pz < bb.z1) { near = true; break; } }
+    for (var bi = 0; bi < world.wireBoxes.length; bi++) { var bb = world.wireBoxes[bi]; if (!bb.off && px > bb.x0 && px < bb.x1 && pz > bb.z0 && pz < bb.z1) { near = true; break; } }
     if (!near) return;
     var dm = flight.dmg;
     for (var s = 0; s < segs.length; s++) {
@@ -536,7 +549,7 @@
       flight.worldPoint(segs[s][0], v1); flight.worldPoint(segs[s][1], v2);
       if (s === 0) { if (dm.wingL) v1.copy(flight.pos); if (dm.wingR) v2.copy(flight.pos); if (dm.wingL && dm.wingR) continue; }
       for (var i = 0; i < world.wires.length; i++) {
-        var w = world.wires[i]; if (w.cut || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
+        var w = world.wires[i]; if (w.cut || w.off || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
         world.cutWire(i); sfx('tear');
         if (s === 0) { v3.set(1, 0, 0).applyQuaternion(flight.quat); var wt = clamp(((px - w.a.x) * (w.b.x - w.a.x) + (pz - w.a.z) * (w.b.z - w.a.z)) / w.a.distanceToSquared(w.b), 0, 1), sd = ((w.a.x + (w.b.x - w.a.x) * wt - px) * v3.x + (w.a.z + (w.b.z - w.a.z) * wt - pz) * v3.z + (w.a.y - flight.pos.y) * v3.y) > 0 ? 1 : -1; if (flight.tearWing(sd)) { flight.r += sd * 0.6; } }
         else if (s === 1) { flight.killEngine(true); }
@@ -555,7 +568,7 @@
       if ((ws < 0 && dm.wingL) || (ws > 0 && dm.wingR)) continue;
       var p = flight.worldPoint(cpts[k], v1), i, t, b;
       for (i = 0; i < world.trees.length; i++) {
-        t = world.trees[i]; if (p.y >= t.h) continue;
+        t = world.trees[i]; if (t.off || p.y >= t.h) continue;
         var dx = p.x - t.x, dz = p.z - t.z, r = t.pole ? t.r : t.r * 0.85; if (dx * dx + dz * dz >= r * r) continue;
         if (ws) { if (flight.tearWing(ws)) { flight.r += ws * 0.8; flight.vel.multiplyScalar(k === 0 || k === 5 ? 0.9 : 0.8); } break; }       // asa bate: arranca a asa
         if (k === 6) { if (!dm.tail) { dm.tail = true; flight.events.push('tail'); } break; }
@@ -581,7 +594,7 @@
   function onEvent(ev) {
     var dm = flight.dmg;
     if (ev === 'touch') sfx('touch', flight.lastSink);
-    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (free) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche.', 'bounce', true); }
+    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (!tutor()) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche.', 'bounce', true); }
     else if (ev === 'gearDamage') { boss('Ó, piloto ruim, meu Deuuus!', 'bravo', null, true, 8); sfx('crunch'); say('Pouso duro: trem de pouso avariado. O próximo toque forte derruba o trem.', 6); }
     else if (ev === 'gearCollapse') { sfx('crunch'); plane.gearParts.forEach(function (m) { m.visible = false; }); say('O trem de pouso cedeu.', 5); }
     else if (ev === 'slide') { sfx('crunch'); toggleSpray(false); }
@@ -629,7 +642,7 @@
     updateGame(dt);
     ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
-    if (free && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
+    if (!tutor() && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
     if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; if (free) rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer.', tier: 2 }); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }

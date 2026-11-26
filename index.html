@@ -160,7 +160,17 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 .ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
 #missions{display:flex;flex-direction:column;gap:6px}
 .mis{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;padding:7px 11px;border-radius:9px;background:transparent;border:1.5px solid var(--line);color:var(--ink)}
-.mis b{font-size:14px}
+.mis b{font-size:13.5px}
+#menu .card{width:min(100%,740px);padding:12px 16px;gap:8px}
+#menu h1{font-size:21px}
+.mgrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+.mside{display:flex;flex-direction:column;gap:8px}
+.mside .cta,.mside .ghost{flex:0 0 auto}
+#missions{gap:4px !important}
+.mrow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mrow .mis{padding:5px 8px}
+.mrow .mis span{font-size:11px}
+.farm{font-size:11px !important;letter-spacing:.08em;text-transform:uppercase;color:var(--dim) !important;margin-top:2px !important}
 .mis span{font-size:11.5px;color:var(--dim)}
 .mis.sel{border-color:var(--accent);background:rgba(243,192,16,.12)}
 .mis:disabled{opacity:.5}
@@ -213,14 +223,16 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
   <div id="menu" class="panel">
     <div class="card">
       <h1>Voo Agrícola<span class="tag">FASE BETA</span></h1>
-      <p class="sub">O jogo está em desenvolvimento. Faça a primeira missão com o instrutor Naldinho; depois dela o voo livre fica liberado.</p>
-      <div id="missions"></div>
-      <p class="sub" id="m-wallet"></p>
-      <div class="row">
-        <button class="cta" id="m-tilt" type="button">Pilotar inclinando o celular</button>
-        <button class="ghost" id="m-stick" type="button">Pilotar com manche na tela</button>
+      <div class="mgrid">
+        <div id="missions"></div>
+        <div class="mside">
+          <p class="sub" id="m-info"></p>
+          <p class="sub" id="m-wallet"></p>
+          <button class="cta" id="m-tilt" type="button">Pilotar inclinando o celular</button>
+          <button class="ghost" id="m-stick" type="button">Pilotar com manche na tela</button>
+          <p id="menu-note"></p>
+        </div>
       </div>
-      <p id="menu-note"></p>
     </div>
   </div>
 
@@ -591,9 +603,15 @@ function col(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
 var SWATH = 30, RWY_HW = 11, RWY_HL = 450, GROUND_HALF = 2048;
 // Cada missão é um talhão de uma fazenda. Faixas de 30 m; a largura dá meia volta de balão entre a faixa i e a i + n/2.
 var FIELDS = [
-  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 120, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 } },
-  { farm: 'Fazenda Santa Luzia', name: 'Talhão 12', prod: 'fungicida', rate: 30, lvl: 2, cx: 900, cz: -900, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 } },
-  { farm: 'Fazenda Boa Esperança', name: 'Talhão 3', prod: 'dessecante', rate: 25, lvl: 3, cx: 1000, cz: 900, len: 1100, wid: 480, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 1, treesU: -1 } }
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 120, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 }, brief: '' },
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 4', prod: 'fungicida', rate: 30, lvl: 2, cx: -1250, cz: -400, len: 800, wid: 180, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 1 }, brief: 'Talhão 4, piloto. Olha a mata no fim da faixa!' },
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 9', prod: 'inseticida', rate: 30, lvl: 3, cx: -1100, cz: 700, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 }, brief: 'Talhão 9. Tem rede do lado, piloto!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 2', prod: 'fungicida', rate: 30, lvl: 4, cx: 900, cz: -900, len: 900, wid: 240, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1 }, brief: 'Iracema, Talhão 2. Rede no fim da faixa!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 11', prod: 'herbicida', rate: 25, lvl: 5, cx: 1600, cz: -500, len: 1000, wid: 300, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 2 }, brief: 'Talhão 11. Mata nas duas pontas, piloto!' },
+  { farm: 'Fazenda Iracema', name: 'Talhão 5', prod: 'inseticida', rate: 30, lvl: 6, cx: 900, cz: -1500, len: 1100, wid: 360, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: -1, treesW: -1 }, brief: 'Talhão 5. Rede na ponta e mata do lado!' },
+  { farm: 'Fazenda São João', name: 'Talhão 3', prod: 'fungicida', rate: 30, lvl: 7, cx: 500, cz: 1100, len: 700, wid: 300, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 2 }, brief: 'São João, Talhão 3. Faixa curta, capricha!' },
+  { farm: 'Fazenda São João', name: 'Talhão 8', prod: 'dessecante', rate: 25, lvl: 8, cx: 1000, cz: 1200, len: 1000, wid: 360, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 2 }, brief: 'Talhão 8. Rede nas duas pontas, piloto!' },
+  { farm: 'Fazenda São João', name: 'Talhão 1', prod: 'dessecante', rate: 25, lvl: 9, cx: 1100, cz: 330, len: 1200, wid: 420, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1, treesU: -1, wiresW: -1 }, brief: 'Talhão 1, o maior. Rede e mata, piloto!' }
 ];
 var ACTIVE = [];                                                  // o talhão da missão em curso
 var SUN = new THREE.Vector3(0.52, 0.66, -0.38).normalize();
@@ -823,18 +841,19 @@ function buildWorld(scene, aniso) {
     }
     return false;
   };
-  var tree = function (x, z, h, force) { if (!force && blocked(x, z)) return; T.push({ x: x, z: z, h: h, r: h * (0.30 + R() * 0.12) }); };
+  var tree = function (x, z, h, force, fld) { if (!force && blocked(x, z)) return; T.push({ x: x, z: z, h: h, r: h * (0.30 + R() * 0.12), f: fld || null }); };
+  var sides = function (v) { return v === 2 ? [-1, 1] : [v]; };
   var x, z, i, a, d;
   // quebra-ventos e redes elétricas de cada talhão, pela configuração da missão
   var P2 = function (f, u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, lines = [];
-  var treeRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 6.5); for (var k = 0; k <= n; k++) { var p = P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n); tree(p[0] + R() * 2, p[1] + R() * 2, 10 + R() * 5, true); } };
-  var poleRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 60), pts = []; for (var k = 0; k <= n; k++) pts.push(P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n)); lines.push(pts); };
+  var treeRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 6.5); for (var k = 0; k <= n; k++) { var p = P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n); tree(p[0] + R() * 2, p[1] + R() * 2, 10 + R() * 5, true, f); } };
+  var poleRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 60), pts = []; for (var k = 0; k <= n; k++) pts.push(P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n)); pts.f = f; lines.push(pts); };
   FIELDS.forEach(function (f) {
     var o = f.obs || {}, l = f.len / 2, h = f.wid / 2, e;
-    if (o.treesU) { e = o.treesU; treeRow(f, e * (l + 24), -h - 12, e * (l + 24), h + 12); treeRow(f, e * (l + 32), -h - 9, e * (l + 32), h + 9); }
-    if (o.treesW) { e = o.treesW; treeRow(f, -l, e * (h + 26), l, e * (h + 26)); treeRow(f, -l + 3, e * (h + 34), l - 3, e * (h + 34)); }
-    if (o.wiresW) { e = o.wiresW; poleRow(f, -l - 60, e * (h + 16), l + 60, e * (h + 16)); }
-    if (o.wiresU) { e = o.wiresU; poleRow(f, e * (l + 45), -h - 60, e * (l + 45), h + 60); }
+    if (o.treesU) sides(o.treesU).forEach(function (e) { treeRow(f, e * (l + 24), -h - 12, e * (l + 24), h + 12); treeRow(f, e * (l + 32), -h - 9, e * (l + 32), h + 9); });
+    if (o.treesW) sides(o.treesW).forEach(function (e) { treeRow(f, -l, e * (h + 26), l, e * (h + 26)); treeRow(f, -l + 3, e * (h + 34), l - 3, e * (h + 34)); });
+    if (o.wiresW) sides(o.wiresW).forEach(function (e) { poleRow(f, -l - 60, e * (h + 16), l + 60, e * (h + 16)); });
+    if (o.wiresU) sides(o.wiresU).forEach(function (e) { poleRow(f, e * (l + 45), -h - 60, e * (l + 45), h + 60); });
   });
   [[-1150, -950, 280, 130], [950, 560, 240, 110], [230, -1380, 250, 100], [-900, 900, 300, 120], [1500, -1100, 260, 90]].forEach(function (b) {
     for (i = 0; i < b[3]; i++) { a = R() * 6.283; d = Math.sqrt(R()) * b[2]; tree(b[0] + Math.cos(a) * d, b[1] + Math.sin(a) * d * 0.7, 9 + R() * 8); }
@@ -872,16 +891,16 @@ function buildWorld(scene, aniso) {
     var bx = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 };
     pts.forEach(function (p, k) {
       M.makeTranslation(p[0], 4.7, p[1]); poleM.setMatrixAt(pk, M); M.makeRotationY(ang); M.setPosition(p[0], WH + 0.05, p[1]); armM.setMatrixAt(pk, M); pk++;
-      T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true });
+      T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true, f: pts.f, pi: pk - 1 });
       bx.x0 = Math.min(bx.x0, p[0] - 14); bx.x1 = Math.max(bx.x1, p[0] + 14); bx.z0 = Math.min(bx.z0, p[1] - 14); bx.z1 = Math.max(bx.z1, p[1] + 14);
       if (k) for (var s = -1; s <= 1; s += 2) {
         var q = pts[k - 1], ax = q[0] + ox * s, az = q[1] + oz * s, cx = p[0] + ox * s, cz = p[1] + oz * s, mx = (ax + cx) / 2, mz = (az + cz) / 2;
         ballM.setMatrixAt(W.wires.length, M.makeTranslation(mx, WH - 0.45, mz));
-        W.wires.push({ a: new THREE.Vector3(ax, WH, az), b: new THREE.Vector3(cx, WH, cz) });
+        W.wires.push({ a: new THREE.Vector3(ax, WH, az), b: new THREE.Vector3(cx, WH, cz), f: pts.f });
         lp.push(ax, WH, az, mx, WH - 0.45, mz, mx, WH - 0.45, mz, cx, WH, cz);
       }
     });
-    W.wireBoxes.push(bx);
+    bx.f = pts.f; W.wireBoxes.push(bx);
   });
   poleM.count = armM.count = nP; ballM.count = nS;
   var lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp.length ? lp : [0, 0, 0, 0, 0, 0], 3));
@@ -891,6 +910,17 @@ function buildWorld(scene, aniso) {
     var w = W.wires[i], a = lg.attributes.position; if (w.cut) return; w.cut = true;
     a.setY(i * 4 + 1, 0.15); a.setY(i * 4 + 2, 0.15); a.needsUpdate = true;
     M.makeTranslation((w.a.x + w.b.x) / 2, 0.32, (w.a.z + w.b.z) / 2); ballM.setMatrixAt(i, M); ballM.instanceMatrix.needsUpdate = true;
+  };
+  var base = null, zero = function (m, k) { m.instanceMatrix.array.fill(0, k * 16, k * 16 + 16); };
+  W.setObstacles = function (act) {                            // quebra-ventos e redes só dos talhões em uso
+    var ms = [trunks, crowns, shads, poleM, armM]; if (!base) base = ms.map(function (m) { return m.instanceMatrix.array.slice(); });
+    ms.forEach(function (m, k) { m.instanceMatrix.array.set(base[k]); });
+    var on = function (f) { return !f || act.indexOf(f) >= 0; }, a = lg.attributes.position, nt = 0;
+    T.forEach(function (t) { t.off = !on(t.f); if (t.pole) { if (t.off) { zero(poleM, t.pi); zero(armM, t.pi); } return; } if (t.off) { zero(trunks, nt); zero(crowns, nt * 2); zero(crowns, nt * 2 + 1); zero(shads, nt); } nt++; });
+    W.resetWires();
+    W.wires.forEach(function (w, i) { w.off = !on(w.f); if (w.off) { for (var k = 0; k < 4; k++) a.setY(i * 4 + k, -50); zero(ballM, i); } });
+    W.wireBoxes.forEach(function (b) { b.off = !on(b.f); });
+    ms.forEach(function (m) { m.instanceMatrix.needsUpdate = true; }); ballM.instanceMatrix.needsUpdate = true; a.needsUpdate = true;
   };
   W.resetWires = function () {
     var a = lg.attributes.position; if (lp0.length) { a.array.set(lp0); a.needsUpdate = true; }
@@ -1285,7 +1315,7 @@ function makeAudio(c) {
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
   var hint = { t: 0, flap: false, empty: false, done: false };
-  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0], free = false;
+  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0], free = false, nextM = null, tutor = function () { return !free && mission === FIELDS[0]; };
   var missionHa = function (f) { return f.len * f.wid / 10000; }, missionLoad = function (f) { return Math.min(1890, Math.ceil(missionHa(f) * f.rate * 1.06 / 50) * 50); };
   var rotated = false, SW = 2, SH = 1;
   var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion();
@@ -1452,7 +1482,7 @@ function makeAudio(c) {
   // ---------- Naldinho: instrutor da primeira missão, fala em caixa de diálogo ----------
   var talkQ = [], talkT = 0, said = {};
   var bossSaid = {}, wasteT = 0, wasteSaid = -99, rich = 0, RICH = [1000, 2500, 5000, 10000, 20000];
-  function talk(text, key, now, delay) { if (free) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push({ t: text, at: simT + (delay || 0), who: 'nal' }); }
+  function talk(text, key, now, delay) { if (!tutor()) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push({ t: text, at: simT + (delay || 0), who: 'nal' }); }
   // Seu Eliseu, o patrão: comenta o serviço na missão e no voo livre. Humores: feliz, bravo, maroto.
   function boss(text, mood, key, now, gap) {                     // sem chave: cada frase tem o seu intervalo mínimo
     if (key) { if (said[key]) return; said[key] = 1; } else { if (simT - (bossSaid[text] || -99) < (gap === undefined ? 14 : gap)) return; bossSaid[text] = simT; }
@@ -1519,8 +1549,8 @@ function makeAudio(c) {
   }
 
   // ---------- moedas, XP e orientação ----------
-  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0 };
-  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.tut = !!sv.tut; } } catch (e) { }
+  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0, prog: 0 };
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.prog = Math.min(FIELDS.length, sv.prog || (sv.tut ? 1 : 0)); } } catch (e) { }
   var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
   var H_MAX = 20, H_LOW = 6.5, lowNow = false, plan = null;            // aplicação vale até 65 ft; até 21 ft é rasante e paga em dobro
   var COIN_M = 1, TIER = [null, { q: 0.72, c: 40, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 80, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 150, xp: 5, t: 'Faixa perfeita' }];
@@ -1681,7 +1711,7 @@ function makeAudio(c) {
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    START.hopper = free ? 1890 : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
+    START.hopper = free ? 1890 : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.setObstacles(free ? FIELDS : [mission]); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; nav.at = null; nav.atRwy = nav.land = false; talkQ.length = 0; talkT = 0; said = {}; bossSaid = {}; wasteT = 0; wasteSaid = -99; rich = 0; show('nal', false); $('hud').classList.remove('talk'); nav.bnT = 0; show('banner', false); pinF.visible = pinR.visible = false; pinF.setText(mission.farm.toUpperCase(), mission.name.toUpperCase()); plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
@@ -1689,7 +1719,9 @@ function makeAudio(c) {
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    if (free) say('Voo livre. Hopper cheio: os três talhões aceitam aplicação.', 6);
+    nextM = null;
+    if (free) say('Voo livre. Hopper cheio: todos os talhões aceitam aplicação.', 6);
+    else if (!tutor()) boss(mission.brief, 'maroto', 'b_brief');
     else { talk('Fala, comandante! Hoje é o ' + mission.name + ', ' + mission.farm.replace('Fazenda ', '') + '.', 'hello'); talk('Flape 1, manete à frente, puxa com 75 nós.', 'takeoff'); }
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
@@ -1726,8 +1758,11 @@ function makeAudio(c) {
     rwQ.length = 0; show('reward', false); show('msg', false);
     $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (free ? 'Voo livre encerrado' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')));
     var nq = '';
-    if (!free) { if (mission.done && !wallet.tut) { wallet.tut = true; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push('Voo livre liberado'); }
-      nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! O voo livre é teu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
+    var mi = FIELDS.indexOf(mission); nextM = null;
+    if (!free) { if (mission.done && wallet.prog <= mi) { wallet.prog = mi + 1; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push(mi === 0 ? 'Missão 2 e voo livre liberados' : (mi + 1 < FIELDS.length ? 'Missão ' + (mi + 2) + ' liberada' : 'Todas as missões cumpridas')); }
+      if (mission.done && !crash && mi + 1 < FIELDS.length) nextM = FIELDS[mi + 1];
+      if (mi > 0) nq = crash ? 'Seu Eliseu: “Ó, piloto ruim, meu Deuuus!”' : (mission.done ? (bad ? 'Seu Eliseu: “Ê, piloto, vai me falir!”' : 'Seu Eliseu: “Ó, piloto bão! Vem tomar café da fazenda.”') : 'Seu Eliseu: “Ficou faixa sem fazer, piloto!”');
+      else nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! Agora é com o Seu Eliseu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
     if (free) nq = crash ? 'Seu Eliseu: “Ó, piloto ruim, meu Deuuus!”' : (bad ? 'Seu Eliseu: “Ê, piloto, vai me falir!”' : (mc >= 1000 ? 'Seu Eliseu: “Ó, piloto bão! Vem tomar café da fazenda.”' : ''));
     $('end-nal').textContent = nq; show('end-nal', !!nq);
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
@@ -1737,18 +1772,26 @@ function makeAudio(c) {
       (notes.length ? '<p class="sub">' + notes.join(' · ') + '.</p>' : '') +
       '<p class="sub">Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv1 + '</p>';
     $('end-score').textContent = score;
+    $('e-again').textContent = nextM ? 'Próxima missão' : 'Voar de novo';
     $('end').classList.toggle('crash', bad); show('end', true);
   }
   function paintMissions() {
-    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40), f = FIELDS[0]; box.textContent = '';
-    if (free && !wallet.tut) free = false;
-    var add = function (title, desc, isFree, locked) {
-      var b = document.createElement('button'), sel = free === isFree; b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-      var t = document.createElement('b'); t.textContent = title; var d = document.createElement('span'); d.textContent = desc; b.appendChild(t); b.appendChild(d);
-      b.addEventListener('click', function () { free = isFree; paintMissions(); resetGame(); }); box.appendChild(b);
+    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40); box.textContent = '';
+    if (free && !wallet.prog) free = false; if (!free && FIELDS.indexOf(mission) > wallet.prog) mission = FIELDS[Math.min(wallet.prog, FIELDS.length - 1)];
+    var pick = function (f, isFree) { return function () { free = isFree; if (f) mission = f; paintMissions(); resetGame(); }; };
+    var btn = function (par, title, desc, sel, locked, fn) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      var t = document.createElement('b'); t.textContent = title; var d = document.createElement('span'); d.textContent = desc; b.appendChild(t); b.appendChild(d); b.addEventListener('click', fn); par.appendChild(b);
     };
-    add('Missão 1 · ' + f.farm, 'Com o instrutor Naldinho · ' + f.prod + ' no ' + f.name + ' · ' + (f.wid / SWATH) + ' faixas de ' + f.len + ' m' + (wallet.tut ? ' · concluída' : ''), false, false);
-    add('Voo livre', wallet.tut ? 'Hopper cheio e três talhões para aplicar à vontade' : 'Libera ao concluir a Missão 1', true, !wallet.tut);
+    var row = null, farm = '';
+    FIELDS.forEach(function (f, k) {
+      if (f.farm !== farm) { farm = f.farm; var h = document.createElement('p'); h.className = 'farm'; h.textContent = farm; box.appendChild(h); row = document.createElement('div'); row.className = 'mrow'; box.appendChild(row); }
+      var locked = k > wallet.prog; btn(row, (k < wallet.prog ? '✓ ' : '') + 'Missão ' + (k + 1), locked ? 'Bloqueada' : f.name + ' · ' + f.nSw + ' faixas', !free && mission === f, locked, pick(f, false));
+    });
+    var o = mission.obs || {}, ob = [];
+    if (o.treesU || o.treesW) ob.push('mata'); if (o.wiresU || o.wiresW) ob.push('rede elétrica');
+    $('m-info').textContent = free ? 'Voo livre: hopper cheio e todos os talhões para aplicar à vontade.' : mission.farm + ' · ' + mission.name + ' · ' + mission.prod + ' · ' + mission.nSw + ' faixas de ' + mission.len + ' m' + (ob.length ? ' · ' + ob.join(' e ') : '') + (tutor() ? ' · com o instrutor Naldinho' : '') + '.';
+    btn(box, 'Voo livre', wallet.prog ? 'Todos os talhões, hopper cheio' : 'Libera ao concluir a Missão 1', free, !wallet.prog, pick(null, true));
     $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
   function goFull() {
@@ -1769,7 +1812,7 @@ function makeAudio(c) {
   tap('o-recal', function () { openCalib(true); });
   tap('p-restart', function () { startPlay(); });
   tap('p-end', function () { show('pause', false); finish(null); });
-  tap('e-again', function () { initAudio(); startPlay(); });
+  tap('e-again', function () { initAudio(); if (nextM) { mission = nextM; free = false; } startPlay(); });
   tap('e-menu', function () { show('end', false); paintMissions(); resetGame(); state = 'menu'; show('menu', true); });
   var optBtn = function (id, label, vals, get, set) {
     var el = $(id), paint = function () { el.textContent = label + ': ' + vals[get()]; }; paint();
@@ -1786,7 +1829,7 @@ function makeAudio(c) {
   var segs = [[[-7.9, -0.3, -0.3], [7.9, -0.3, -0.3]], [[0, 0, -5.2], [0, 0.2, 4.9]], [[0, 0.3, 4.2], [0, 2.1, 4.6]], [[0, -1.9, -1.3], [0, 0, -1.3]]];
   function hitWires() {
     if (flight.pos.y > 14) return; var near = false, px = flight.pos.x, pz = flight.pos.z;
-    for (var bi = 0; bi < world.wireBoxes.length; bi++) { var bb = world.wireBoxes[bi]; if (px > bb.x0 && px < bb.x1 && pz > bb.z0 && pz < bb.z1) { near = true; break; } }
+    for (var bi = 0; bi < world.wireBoxes.length; bi++) { var bb = world.wireBoxes[bi]; if (!bb.off && px > bb.x0 && px < bb.x1 && pz > bb.z0 && pz < bb.z1) { near = true; break; } }
     if (!near) return;
     var dm = flight.dmg;
     for (var s = 0; s < segs.length; s++) {
@@ -1794,7 +1837,7 @@ function makeAudio(c) {
       flight.worldPoint(segs[s][0], v1); flight.worldPoint(segs[s][1], v2);
       if (s === 0) { if (dm.wingL) v1.copy(flight.pos); if (dm.wingR) v2.copy(flight.pos); if (dm.wingL && dm.wingR) continue; }
       for (var i = 0; i < world.wires.length; i++) {
-        var w = world.wires[i]; if (w.cut || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
+        var w = world.wires[i]; if (w.cut || w.off || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
         world.cutWire(i); sfx('tear');
         if (s === 0) { v3.set(1, 0, 0).applyQuaternion(flight.quat); var wt = clamp(((px - w.a.x) * (w.b.x - w.a.x) + (pz - w.a.z) * (w.b.z - w.a.z)) / w.a.distanceToSquared(w.b), 0, 1), sd = ((w.a.x + (w.b.x - w.a.x) * wt - px) * v3.x + (w.a.z + (w.b.z - w.a.z) * wt - pz) * v3.z + (w.a.y - flight.pos.y) * v3.y) > 0 ? 1 : -1; if (flight.tearWing(sd)) { flight.r += sd * 0.6; } }
         else if (s === 1) { flight.killEngine(true); }
@@ -1813,7 +1856,7 @@ function makeAudio(c) {
       if ((ws < 0 && dm.wingL) || (ws > 0 && dm.wingR)) continue;
       var p = flight.worldPoint(cpts[k], v1), i, t, b;
       for (i = 0; i < world.trees.length; i++) {
-        t = world.trees[i]; if (p.y >= t.h) continue;
+        t = world.trees[i]; if (t.off || p.y >= t.h) continue;
         var dx = p.x - t.x, dz = p.z - t.z, r = t.pole ? t.r : t.r * 0.85; if (dx * dx + dz * dz >= r * r) continue;
         if (ws) { if (flight.tearWing(ws)) { flight.r += ws * 0.8; flight.vel.multiplyScalar(k === 0 || k === 5 ? 0.9 : 0.8); } break; }       // asa bate: arranca a asa
         if (k === 6) { if (!dm.tail) { dm.tail = true; flight.events.push('tail'); } break; }
@@ -1839,7 +1882,7 @@ function makeAudio(c) {
   function onEvent(ev) {
     var dm = flight.dmg;
     if (ev === 'touch') sfx('touch', flight.lastSink);
-    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (free) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche.', 'bounce', true); }
+    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (!tutor()) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche.', 'bounce', true); }
     else if (ev === 'gearDamage') { boss('Ó, piloto ruim, meu Deuuus!', 'bravo', null, true, 8); sfx('crunch'); say('Pouso duro: trem de pouso avariado. O próximo toque forte derruba o trem.', 6); }
     else if (ev === 'gearCollapse') { sfx('crunch'); plane.gearParts.forEach(function (m) { m.visible = false; }); say('O trem de pouso cedeu.', 5); }
     else if (ev === 'slide') { sfx('crunch'); toggleSpray(false); }
@@ -1887,7 +1930,7 @@ function makeAudio(c) {
     updateGame(dt);
     ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
-    if (free && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
+    if (!tutor() && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
     if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; if (free) rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer.', tier: 2 }); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
