@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Voo Agrícola</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: tela cheia em paisagem; instrumentos no topo, manete à esquerda, aplicação à direita */
+  --ink:#eef3ea; --dim:#a9b8ac; --panel:rgba(10,18,14,.66); --line:rgba(238,243,234,.22);
+  --go:#7be36a; --warn:#ffb629; --bad:#ff5b4d; --accent:#f3c010;
+  --f-ui:'B612',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-num:'B612 Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:#0b120e;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--f-ui);color:var(--ink);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+#stage{position:fixed;left:0;top:0;width:100%;height:100%;transform-origin:0 0;overflow:hidden;background:#0b120e;touch-action:none;
+  --sl:max(env(safe-area-inset-left),14px);--sr:max(env(safe-area-inset-right),14px);--st:max(env(safe-area-inset-top),10px);--sb:max(env(safe-area-inset-bottom),12px)}
+#stage.rot{--sl:max(env(safe-area-inset-top),14px);--sr:max(env(safe-area-inset-bottom),14px);--st:max(env(safe-area-inset-right),10px);--sb:max(env(safe-area-inset-left),12px)}
+#gl{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.hidden{display:none!important}
+button{font-family:var(--f-ui);cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;top:0;width:100%;height:100%}
+.inst{position:absolute;top:var(--st);display:flex;align-items:baseline;gap:6px;padding:4px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.inst b{font:700 26px/1.1 var(--f-num);min-width:3ch;text-align:right;font-variant-numeric:tabular-nums}
+.inst .lbl{font-size:10px;letter-spacing:.1em;color:var(--dim)}
+.inst .u{font-size:11px;color:var(--dim)}
+#i-spd{left:var(--sl)}
+#i-alt{right:calc(var(--sr) + 96px)}
+#h-cov{position:absolute;left:var(--sl);top:calc(var(--st) + 46px);font:700 12px var(--f-num);text-shadow:0 1px 3px #000,0 0 2px #000;white-space:pre}
+#lightbar{position:absolute;top:var(--st);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px}
+#lb-leds{display:flex;gap:3px;padding:6px 7px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+#lb-leds i{width:8px;height:13px;border-radius:2px;background:rgba(238,243,234,.15)}
+#lb-leds i.mid{box-shadow:0 0 0 1px var(--dim)}
+#lb-leds.off i.lit{background:var(--warn)}
+#lb-leds.good i.lit{background:var(--go)}
+#lb-leds.done i.lit{background:var(--dim)}
+#stage.narrow #lb-leds i{width:6px}
+#lb-txt{font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 2px #000}
+#warn{position:absolute;top:calc(var(--st) + 62px);left:50%;transform:translateX(-50%);padding:4px 14px;border-radius:6px;font:700 17px var(--f-num);letter-spacing:.12em;white-space:nowrap}
+#warn:empty{display:none}
+#warn.bad{background:var(--bad);color:#240300}
+#warn.warn{background:var(--warn);color:#241600}
+#msg{position:absolute;top:calc(var(--st) + 98px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:14px;line-height:1.35;text-align:center;text-wrap:balance}
+#stage.short #msg{top:calc(var(--st) + 62px)}
+#thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(56%,230px);touch-action:none}
+#thr-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;color:var(--ink);text-shadow:0 1px 3px #000}
+#thr-track{position:absolute;left:25px;top:30px;bottom:18px;width:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+#thr-fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--accent);opacity:.6;border-radius:7px}
+#thr-knob{position:absolute;left:-22px;bottom:0;width:56px;height:30px;margin-bottom:-15px;box-sizing:border-box;background:#161b18;border:2px solid var(--ink);border-radius:8px;font:700 10px/26px var(--f-num);text-align:center;letter-spacing:.08em}
+#status{position:absolute;left:50%;bottom:var(--sb);transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font:12px var(--f-num);white-space:nowrap}
+#status b{font-variant-numeric:tabular-nums}
+#hop{width:64px;height:8px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+#hop-fill{height:100%;width:100%;background:var(--go)}
+.btn{position:absolute;box-sizing:border-box;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);font-weight:700;font-size:12px;letter-spacing:.06em;border-radius:10px;padding:0}
+#b-pause{top:var(--st);right:var(--sr);width:40px;height:40px;font-size:13px}
+#b-cam{top:var(--st);right:calc(var(--sr) + 48px);width:40px;height:40px;font-size:10px}
+#b-spray{right:var(--sr);bottom:var(--sb);width:104px;height:104px;border-radius:50%;font-size:13px}
+#b-spray.on{background:var(--go);color:#06210a;border-color:#06210a;box-shadow:0 0 0 5px rgba(123,227,106,.35)}
+#b-flap{right:calc(var(--sr) + 116px);bottom:var(--sb);width:88px;height:46px}
+#joy{position:absolute;right:var(--sr);bottom:var(--sb);width:140px;height:140px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);touch-action:none}
+#joy-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--ink);opacity:.88;pointer-events:none}
+#hud:not(.stick) #joy{display:none}
+#hud.stick #b-spray{right:auto;left:calc(var(--sl) + 78px);width:86px;height:86px}
+#hud.stick #b-flap{right:auto;left:calc(var(--sl) + 78px);bottom:calc(var(--sb) + 96px);width:86px}
+
+/* ---------- telas ---------- */
+.panel{position:absolute;left:0;top:0;width:100%;height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;padding:10px var(--sr) 10px var(--sl);background:linear-gradient(90deg,rgba(8,14,10,.78),rgba(8,14,10,.25) 70%,rgba(8,14,10,0))}
+.card{box-sizing:border-box;width:min(100%,470px);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px 18px;background:rgba(10,18,14,.84);border:1px solid var(--line);border-radius:14px}
+.card h1{margin:0;font-size:25px;line-height:1.15;text-wrap:balance}
+.card p{margin:0;font-size:13.5px;line-height:1.4;color:var(--ink)}
+.card .sub{color:var(--dim)}
+.card ol{margin:0;padding-left:20px;font-size:13px;line-height:1.45}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.cta,.ghost{flex:1 1 150px;min-height:44px;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px}
+.cta{background:var(--accent);color:#1b1500;border:0}
+.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+#menu-note{color:var(--warn);min-height:0}
+#menu-note:empty{display:none}
+#c-wrap{display:flex;align-items:center;gap:16px}
+#c-ring{flex:none;position:relative;width:96px;height:96px;border-radius:50%;border:1.5px solid var(--line);background:radial-gradient(circle,rgba(123,227,106,.18) 0 12px,transparent 13px)}
+#c-dot{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--accent)}
+#end table{width:100%;border-collapse:collapse;font:13px var(--f-num)}
+#end th,#end td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+#end th:first-child,#end td:first-child{text-align:left}
+#end th{font-weight:400;color:var(--dim);font-size:11px}
+#end-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#end-scorebox{flex:none;text-align:center;padding:4px 12px;border:1.5px solid var(--go);border-radius:10px}
+#end.crash #end-scorebox{border-color:var(--bad)}
+#end-score{display:block;font:700 30px/1 var(--f-num)}
+#end-scorebox span{font-size:10px;letter-spacing:.1em;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl"></canvas>
+
+  <div id="hud" class="hidden stick">
+    <div class="inst" id="i-spd"><span class="lbl">VEL</span><b id="h-spd">0</b><span class="u">kt</span></div>
+    <div id="h-cov"></div>
+    <div id="lightbar"><div id="lb-leds"></div><div id="lb-txt">Guia de faixa</div></div>
+    <div class="inst" id="i-alt"><span class="lbl">ALT</span><b id="h-alt">0</b><span class="u">ft</span></div>
+    <button class="btn" id="b-cam" type="button" aria-label="Trocar câmera">CAM</button>
+    <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
+    <div id="warn"></div>
+    <div id="msg" class="hidden"></div>
+    <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-fill"></div><div id="thr-knob">PWR</div></div></div>
+    <div id="status"><span>TQ <b id="h-tq">0</b>%</span><span>G <b id="h-g">1,0</b></span><span>HOPPER</span><div id="hop"><div id="hop-fill"></div></div><span><b id="h-hop">1200</b> L</span></div>
+    <button class="btn" id="b-flap" type="button">FLAPE 1</button>
+    <button class="btn" id="b-spray" type="button" aria-pressed="false">APLICAR</button>
+    <div id="joy" aria-label="Manche"><div id="joy-knob"></div></div>
+  </div>
+
+  <div id="menu" class="panel">
+    <div class="card">
+      <h1>Voo Agrícola</h1>
+      <p class="sub">Turboélice agrícola com o desempenho do AT-502B: 750 shp, 1.200 L no hopper, dois talhões de soja e uma pista de terra.</p>
+      <ol>
+        <li>Flape 1, potência total, puxe ao passar de 75 kt.</li>
+        <li>Recolha o flape, desça a 10 ft sobre a lavoura e ligue a aplicação entre 105 e 125 kt.</li>
+        <li>Siga a guia de faixa (24 m), suba antes das árvores e da rede elétrica, e pouse de volta.</li>
+      </ol>
+      <div class="row">
+        <button class="cta" id="m-tilt" type="button">Pilotar inclinando o iPhone</button>
+        <button class="ghost" id="m-stick" type="button">Pilotar com manche na tela</button>
+      </div>
+      <p id="menu-note"></p>
+    </div>
+  </div>
+
+  <div id="calib" class="panel hidden">
+    <div class="card">
+      <h1>Calibragem</h1>
+      <div id="c-wrap">
+        <div id="c-ring"><div id="c-dot"></div></div>
+        <p>Segure o iPhone deitado, na posição em que você vai jogar, com a tela um pouco inclinada para você. Essa posição vira o zero: asas niveladas e voo reto.</p>
+      </div>
+      <p class="sub">Depois, gire como um volante para curvar. Incline o topo para você para subir e para longe para descer.</p>
+      <div class="row">
+        <button class="cta" id="c-go" type="button">Calibrar e voar</button>
+        <button class="ghost" id="c-back" type="button">Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause" class="panel hidden">
+    <div class="card">
+      <h1>Pausa</h1>
+      <div class="row">
+        <button class="cta" id="p-resume" type="button">Continuar</button>
+        <button class="ghost" id="o-recal" type="button">Recalibrar</button>
+      </div>
+      <div class="row">
+        <button class="ghost" id="o-assist" type="button">Comando</button>
+        <button class="ghost" id="o-sens" type="button">Sensibilidade</button>
+        <button class="ghost" id="o-inv" type="button">Arfagem</button>
+        <button class="ghost" id="o-snd" type="button">Som</button>
+      </div>
+      <p class="sub">Assistido: o avião acompanha a inclinação e segura a altura nas curvas. Direto: aileron e profundor crus, com estol e queda de asa por sua conta.</p>
+      <div class="row">
+        <button class="ghost" id="p-restart" type="button">Reiniciar</button>
+        <button class="ghost" id="p-end" type="button">Encerrar e ver resultado</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="end" class="panel hidden">
+    <div class="card">
+      <div id="end-head">
+        <div><h1 id="end-title">Missão encerrada</h1><p class="sub" id="end-sub"></p></div>
+        <div id="end-scorebox"><b id="end-score">0</b><span>NOTA</span></div>
+      </div>
+      <div id="end-body"></div>
+      <div class="row">
+        <button class="cta" id="e-again" type="button">Voar de novo</button>
+        <button class="ghost" id="e-menu" type="button">Menu</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="__THREE__"></script>
+<script>
+if (typeof THREE === 'undefined') document.getElementById('menu-note').textContent = 'Não foi possível carregar a biblioteca 3D. Confira a internet e recarregue a página.';
+</script>
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>
