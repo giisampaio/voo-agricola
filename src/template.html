@@ -61,6 +61,21 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #banner b{font-size:19px;line-height:1.2}
 #banner span{font-size:12px;color:var(--go);letter-spacing:.04em}
 @media (prefers-reduced-motion:no-preference){#banner:not(.hidden){animation:pop .3s ease-out}}
+#nal{position:absolute;left:calc(var(--sl) + 140px);right:calc(var(--sr) + 216px);bottom:calc(var(--sb) + 52px);display:flex;align-items:center;gap:10px;padding:7px 12px 7px 7px;text-align:left;background:rgba(12,20,16,.9);border:1.5px solid var(--accent);border-radius:14px 14px 14px 4px;color:var(--ink)}
+#nal-pic{flex:none;width:52px;height:52px;border-radius:50%;overflow:hidden;background:var(--accent);display:flex;align-items:center;justify-content:center;border:2px solid var(--ink)}
+#nal-pic img{width:100%;height:100%;object-fit:cover;display:none}
+#nal-pic.has img{display:block}
+#nal-pic.has i{display:none}
+#nal-pic i{font:700 24px var(--f-ui);font-style:normal;color:#1b1500}
+#nal-b{display:flex;flex-direction:column;gap:2px;min-width:0}
+#nal-b b{font-size:10px;letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
+#nal-t{font-size:13px;line-height:1.3}
+@media (prefers-reduced-motion:no-preference){#nal:not(.hidden){animation:pop .25s ease-out}}
+#hud.stick #nal{left:calc(var(--sl) + 226px);right:calc(var(--sr) + 150px)}
+#stage.narrow #nal-t{font-size:12px}
+#stage.narrow #nal-pic{width:42px;height:42px}
+#hud.talk #reward,#hud.talk #msg{bottom:calc(var(--sb) + 134px)}
+.tag{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:5px;background:var(--accent);color:#1b1500;font:700 10px var(--f-num);letter-spacing:.1em;vertical-align:middle}
 #reward{position:absolute;left:0;right:0;bottom:calc(var(--sb) + 52px);width:max-content;max-width:70%;margin:0 auto;display:flex;align-items:center;gap:8px;padding:7px 14px;background:rgba(20,16,2,.86);border:1.5px solid var(--accent);border-radius:999px;font-size:13px;white-space:nowrap}
 #reward b{font:700 18px var(--f-num);color:#ffe28a}
 #reward em{font:700 12px var(--f-num);font-style:normal;color:var(--go)}
@@ -81,7 +96,8 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #warn:empty{display:none}
 #warn.bad{background:var(--bad);color:#240300}
 #warn.warn{background:var(--warn);color:#241600}
-#msg{position:absolute;bottom:calc(var(--sb) + 52px);left:50%;transform:translateX(-50%);width:max-content;max-width:min(64%,440px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.3;text-align:center;text-wrap:balance}
+#msg{position:absolute;left:calc(var(--sl) + 140px);right:calc(var(--sr) + 216px);bottom:calc(var(--sb) + 52px);padding:8px 14px;background:var(--panel);border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.3;text-align:center;text-wrap:balance}
+#hud.stick #msg{left:calc(var(--sl) + 226px);right:calc(var(--sr) + 150px)}
 #thr{position:absolute;left:var(--sl);bottom:var(--sb);width:64px;height:min(50%,210px);touch-action:none}
 #thr-lbl{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:9px;letter-spacing:.1em;color:var(--ink);text-shadow:0 1px 3px #000}
 #thr-track{position:absolute;left:25px;top:30px;bottom:18px;width:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
@@ -155,6 +171,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #end-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #end-scorebox{flex:none;text-align:center;padding:4px 12px;border:1.5px solid var(--go);border-radius:10px}
 #end.crash #end-scorebox{border-color:var(--bad)}
+#end-nal{padding:8px 11px;border-left:3px solid var(--accent);background:rgba(243,192,16,.08);border-radius:0 8px 8px 0;font-size:13px;color:var(--ink)}
 #end p.money{display:flex;flex-wrap:wrap;align-items:center;gap:6px;color:#ffe28a}
 #end-score{display:block;font:700 30px/1 var(--f-num)}
 #end-scorebox span{font-size:10px;letter-spacing:.1em;color:var(--dim)}
@@ -179,6 +196,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
     <button class="btn" id="b-pause" type="button" aria-label="Pausar">II</button>
     <div id="warn"></div>
     <div id="msg" class="hidden"></div>
+    <button id="nal" class="hidden" type="button" aria-live="polite"><span id="nal-pic"><img id="nal-img" alt=""><i>N</i></span><span id="nal-b"><b>Naldinho · instrutor</b><span id="nal-t"></span></span></button>
     <div id="thr" role="slider" aria-label="Manete de potência"><div id="thr-lbl">POTÊNCIA</div><div id="thr-track"><div id="thr-rev"></div><div id="thr-fill"></div><div id="thr-idle"></div><div id="thr-knob">PWR</div></div></div>
     <div id="flap" role="slider" aria-label="Alavanca de flape" aria-valuemin="0" aria-valuemax="2" aria-valuenow="1"><div id="flap-lbl">FLAPE</div><div id="flap-track"><i></i><i></i><i></i><div id="flap-knob">1</div></div></div>
     <button class="btn" id="b-brake" type="button">FREIO</button>
@@ -189,8 +207,8 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 
   <div id="menu" class="panel">
     <div class="card">
-      <h1>Voo Agrícola</h1>
-      <p class="sub">Escolha a missão. Siga o arco e a faixa amarela. Aplicar abaixo de 65 ft rende moedas; no rasante, abaixo de 20 ft, rende em dobro.</p>
+      <h1>Voo Agrícola<span class="tag">FASE BETA</span></h1>
+      <p class="sub">O jogo está em desenvolvimento. Faça a primeira missão com o instrutor Naldinho; depois dela o voo livre fica liberado.</p>
       <div id="missions"></div>
       <p class="sub" id="m-wallet"></p>
       <div class="row">
@@ -244,6 +262,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
         <div id="end-scorebox"><b id="end-score">0</b><span>NOTA</span></div>
       </div>
       <div id="end-body"></div>
+      <p id="end-nal" class="hidden"></p>
       <div class="row">
         <button class="cta" id="e-again" type="button">Voar de novo</button>
         <button class="ghost" id="e-menu" type="button">Menu</button>

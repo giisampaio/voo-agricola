@@ -521,10 +521,10 @@ function makePuffs(scene, N, o) {
 
 // ===================== cobertura =====================
 function resetFields(active) {
-  ACTIVE.length = 0; if (active) ACTIVE.push(active);
+  ACTIVE.length = 0; if (active) (Array.isArray(active) ? active : [active]).forEach(function (f) { ACTIVE.push(f); });
   FIELDS.forEach(function (f) {
     f.grid.fill(0); f.ovl.fill(0); f.sw.fill(0); f.tier.fill(0); f.touched.fill(0); f.cov = 0; f.over = 0; f.pass = 0; f.lastHit = -99; f.fresh = 0; f.evalPending = false; f.done = false;
-    var g = f.ctx; g.clearRect(0, 0, f.wid, f.len); if (f !== active) { f.tex.needsUpdate = true; f.dirty = false; return; }
+    var g = f.ctx; g.clearRect(0, 0, f.wid, f.len); if (ACTIVE.indexOf(f) < 0) { f.tex.needsUpdate = true; f.dirty = false; return; }
     g.fillStyle = 'rgba(255,255,255,0.20)'; for (var k = 1; k < f.nSw; k++) g.fillRect(k * SWATH - 1, 0, 2, f.len);      // divisas das faixas
     g.strokeStyle = 'rgba(255,236,120,0.95)'; g.lineWidth = 4; g.strokeRect(2, 2, f.wid - 4, f.len - 4);            // contorno do talhão a aplicar
     f.tex.needsUpdate = true; f.dirty = false;

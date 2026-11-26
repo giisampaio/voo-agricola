@@ -26,7 +26,7 @@
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
   var hint = { t: 0, flap: false, empty: false, done: false };
-  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0];
+  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0], free = false;
   var missionHa = function (f) { return f.len * f.wid / 10000; }, missionLoad = function (f) { return Math.min(1890, Math.ceil(missionHa(f) * f.rate * 1.06 / 50) * 50); };
   var rotated = false, SW = 2, SH = 1;
   var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion();
@@ -190,6 +190,17 @@
   (function () { var b = $('lb-leds'); for (var i = 0; i < LB; i++) { var d = document.createElement('i'); if (i === (LB - 1) / 2) d.className = 'mid'; b.appendChild(d); leds.push(d); } })();
   var msgT = 0;
   function say(t, sec) { $('msg').textContent = t; show('msg', true); msgT = sec || 4; }
+  // ---------- Naldinho: instrutor da primeira missão, fala em caixa de diálogo ----------
+  var talkQ = [], talkT = 0, said = {};
+  if (typeof NALDINHO_URI === 'string' && NALDINHO_URI) { $('nal-img').src = NALDINHO_URI; $('nal-pic').classList.add('has'); }
+  function talk(text, key, now) { if (free) return; if (key) { if (said[key]) return; said[key] = 1; } if (now) { talkQ.length = 0; talkT = 0; } talkQ.push(text); }
+  function updateTalk(dt) {
+    if (talkT > 0) { talkT -= dt; if (talkT <= 0) { show('nal', false); $('hud').classList.remove('talk'); talkT = talkQ.length ? -0.35 : 0; } }
+    else if (talkT < 0) { talkT = Math.min(0, talkT + dt); }
+    if (talkT === 0 && talkQ.length) { var t = talkQ.shift(); $('nal-t').textContent = t; show('msg', false); msgT = 0; show('nal', true); $('hud').classList.add('talk'); talkT = clamp(2.6 + t.length * 0.055, 4, 9.5); sfx('valve', 1); }
+  }
+  $('nal').addEventListener('click', function () { if (talkT > 0.2) talkT = 0.05; });
+  function ref() { if (!free) return mission; var b = FIELDS[0], bd = 1e9; FIELDS.forEach(function (f) { var d = fieldDist(f); if (d < bd) { bd = d; b = f; } }); return b; }
   var fmt = function (n, d) { return n.toFixed(d || 0).replace('.', ','); };
   var hudT = 0, ledOn = -1;
   function guidance() {
@@ -244,7 +255,7 @@
 
   // ---------- moedas, XP e orientação ----------
   var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0 };
-  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; } } catch (e) { }
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.tut = !!sv.tut; } } catch (e) { }
   var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
   var H_MAX = 20, H_LOW = 6.5, lowNow = false, plan = null;            // aplicação vale até 65 ft; até 21 ft é rasante e paga em dobro
   var COIN_M = 1, TIER = [null, { q: 0.72, c: 40, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 80, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 150, xp: 5, t: 'Faixa perfeita' }];
@@ -254,9 +265,10 @@
   function swQ(f, i) { return clamp(f.sw[i] / (SWATH * f.len), 0, 1); }
   function evaluate(f) {                                           // fim de uma passagem: paga o bônus das faixas que subiram de categoria
     if (f.passAll > SWATH * 150 && f.passLow / f.passAll >= 0.7) award(60, 1, 'Rasante: abaixo de 20 ft', 2); f.passAll = f.passLow = 0;
+    talk('Desliga e puxa! Agora é o balão: abre pro lado que a seta mandar, deita a asa e volta alinhado na próxima faixa.', 'balao');
     for (var i = 0; i < f.nSw; i++) {
       var q = swQ(f, i), t = q >= TIER[3].q ? 3 : (q >= TIER[2].q ? 2 : (q >= TIER[1].q ? 1 : 0));
-      if (t > f.tier[i]) { var o = f.tier[i]; award(TIER[t].c - (o ? TIER[o].c : 0), TIER[t].xp - (o ? TIER[o].xp : 0), TIER[t].t + ' · ' + Math.round(q * 100) + '%', t); f.tier[i] = t; }
+      if (t > f.tier[i]) { if (t === 3) talk('Faixa perfeita! Tá voando igual gente grande, comandante.', 'q3'); else talk('Valeu, mas faltou cobrir um pedaço. Liga a aplicação antes da cabeceira e só desliga depois do fim.', 'q12'); var o = f.tier[i]; award(TIER[t].c - (o ? TIER[o].c : 0), TIER[t].xp - (o ? TIER[o].xp : 0), TIER[t].t + ' · ' + Math.round(q * 100) + '%', t); f.tier[i] = t; }
       else if (f.touched[i] && t === 0 && q > 0.15) say('Faixa ' + (i + 1) + ' incompleta: ' + Math.round(q * 100) + '%. Faltou cobrir para ganhar o bônus.', 4);
       f.touched[i] = 0;
     }
@@ -266,8 +278,10 @@
     }
   }
   function pickTarget() {
-    var f = ACTIVE[0]; if (!f || f.done) return null;
-    for (var k = 0, h = f.nSw / 2; k < f.nSw; k++) { var i = k % 2 === 0 ? k / 2 : (k - 1) / 2 + h; if (!f.tier[i]) return { f: f, i: i }; }
+    var f = ACTIVE[0], k, i;
+    if (free) { f = ref(); if (f.done || fieldDist(f) > 1500) return null; var l = locUW(f), bi = -1, bc = 1e9; for (i = 0; i < f.nSw; i++) { if (f.tier[i]) continue; var c = Math.abs(l.w + f.wid / 2 - (i + 0.5) * SWATH); if (c < bc) { bc = c; bi = i; } } return bi < 0 ? null : { f: f, i: bi }; }
+    if (!f || f.done) return null;
+    for (k = 0; k < f.nSw; k++) { i = k % 2 === 0 ? k / 2 : (k - 1) / 2 + f.nSw / 2; if (!f.tier[i]) return { f: f, i: i }; }
     return null;
   }
   function updateGame(dt) {
@@ -279,7 +293,7 @@
     }
     // faixa-alvo: a que está sendo aplicada; fora dela, a pendente mais próxima
     var pass = null;
-    if (spraying && !flight.onGround) for (i = 0; i < ACTIVE.length; i++) { f = ACTIVE[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
+    if (spraying && !flight.onGround) for (i = 0; i < ACTIVE.length; i++) { f = ACTIVE[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { talk('Isso! Segura a altura e mantém o avião no meio da faixa amarela. Abaixo de 20 pés paga em dobro, mas só se estiver na mão.', 'spray'); pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
     tgtT -= dt;
     if (pass) { if (!tgt || tgt.f !== pass.f || tgt.i !== pass.i) { tgt = pass; world.setLane(tgt.f, tgt.i); } tgtT = 1.2; }
     else if (tgtT <= 0) { tgtT = 0.4; var n = pickTarget(); if ((n && (!tgt || n.f !== tgt.f || n.i !== tgt.i)) || (!n && tgt)) { tgt = n; world.setLane(n && n.f, n && n.i); } }
@@ -288,23 +302,23 @@
     if (rwT <= 0 && rwQ.length) { var r = rwQ.shift(); $('rw-c').textContent = r.c ? '+' + r.c : ''; $('reward').classList.toggle('plain', !r.c); $('rw-t').textContent = r.t; $('rw-x').textContent = r.xp ? '+' + r.xp + ' XP' : ''; show('msg', false); msgT = 0; show('reward', true); rwT = 1.9; sfx('reward', r.tier); }
     if (Math.abs(bank.coins - bank.shown) > 0.5) { bank.shown += (bank.coins - bank.shown) * Math.min(1, dt * 7); if (Math.abs(bank.coins - bank.shown) < 1) bank.shown = bank.coins; $('h-coin').textContent = Math.floor(bank.shown).toLocaleString('pt-BR'); }
     if (bank.xp !== bank.xpShown) { bank.xpShown = bank.xp; $('h-xp').textContent = 'XP ' + bank.xp + ' · NV ' + level(); }
-    updateFD(dt); updateNav(dt);
+    updateFD(dt); updateNav(dt); updateTalk(dt);
   }
   // ---------- pinos, avisos de chegada e minimapa ----------
-  var pinF = world.makePin('#7be36a'), pinR = world.makePin('#ffffff'), nav = { atField: false, atRwy: false, land: false, bnT: 0, mapT: 0 };
+  var pinF = world.makePin('#7be36a'), pinR = world.makePin('#ffffff'), nav = { at: null, atRwy: false, land: false, bnT: 0, mapT: 0 };
   pinR.setText('PISTA SCHEFFER', 'SAPEZAL - MT'); pinR.position.set(0, 55, 0);
   function banner(t, sub) { $('bn-t').textContent = t; $('bn-s').textContent = sub || ''; show('banner', true); nav.bnT = 3.6; sfx('reward', 2); }
   function fieldDist(f) { var l = locUW(f), a = Math.max(Math.abs(l.u) - f.len / 2, 0), b = Math.max(Math.abs(l.w) - f.wid / 2, 0); return Math.sqrt(a * a + b * b); }
   function updateNav(dt) {
-    var f = mission, air = !flight.onGround, bob = Math.sin(simT * 2) * 5;
-    nav.land = f.done || flight.hopper <= 0 || flight.dmg.engine || flight.dmg.gear > 0;
+    var f = ref(), air = !flight.onGround, bob = Math.sin(simT * 2) * 5;
+    nav.land = flight.hopper <= 0 || flight.dmg.engine || flight.dmg.gear > 0 || (free ? ACTIVE.every(function (x) { return x.done; }) : f.done);
     var df = fieldDist(f), dr = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(clamp(flight.pos.z, -RWY_HL, RWY_HL) - flight.pos.z, 2));
     // talhão: o pino aparece até chegar; na chegada mostra o nome e some
-    if (!nav.atField && df < 260 && air) { nav.atField = true; banner(f.farm, f.name + ' · ' + f.prod + ' · ' + f.nSw + ' faixas'); }
-    else if (nav.atField && df > 1300) nav.atField = false;
-    pinF.visible = state === 'play' && !nav.land && !nav.atField; if (pinF.visible) pinF.position.set(f.cx, 70 + bob, f.cz);
+    if (nav.at !== f && df < 260 && air) { nav.at = f; banner(f.farm, f.name + ' · ' + f.prod + ' · ' + f.nSw + ' faixas'); talk('Chegou! Desce pra menos de 65 pés, alinha na faixa amarela e liga a aplicação na cabeceira.', 'arrive'); }
+    else if (nav.at === f && df > 1300) nav.at = null;
+    pinF.visible = state === 'play' && !free && !nav.land && nav.at !== f; if (pinF.visible) pinF.position.set(f.cx, 70 + bob, f.cz);
     // pista: pino quando é hora de voltar
-    if (nav.land && !nav.atRwy && dr < 420 && air) { nav.atRwy = true; banner('Pista Scheffer', 'Sapezal - MT · pouse e pare na pista'); }
+    if (nav.land && !nav.atRwy && dr < 420 && air) { nav.atRwy = true; banner('Pista Scheffer', 'Sapezal - MT · pouse e pare na pista'); talk('Flape 2, reduz pra uns 70 nós na final e deixa assentar macio. Depois do toque, freio e reverso.', 'final'); }
     else if (nav.atRwy && dr > 1300) nav.atRwy = false;
     pinR.visible = state === 'play' && nav.land && !nav.atRwy && air; if (pinR.visible) pinR.position.y = 55 + bob;
     if (nav.bnT > 0) { nav.bnT -= dt; if (nav.bnT <= 0) show('banner', false); }
@@ -312,18 +326,19 @@
   }
   var mini = $('mini'), gM = mini.getContext('2d'), mSize = 92;
   function drawMini() {                                            // proa para cima; 1.600 m de raio
-    var S = mSize, c = S / 2, k = c / 1600, sp = Math.sin(flight.psi), cp = Math.cos(flight.psi), f = mission, g = gM, i;
+    var S = mSize, c = S / 2, k = c / 1600, sp = Math.sin(flight.psi), cp = Math.cos(flight.psi), f, g = gM, i, fi;
     var X = function (x, z) { var dx = x - flight.pos.x, dz = z - flight.pos.z; return c + (dx * cp + dz * sp) * k; }, Y = function (x, z) { var dx = x - flight.pos.x, dz = z - flight.pos.z; return c - (dx * sp - dz * cp) * k; };
     g.setTransform(PR, 0, 0, PR, 0, 0); g.clearRect(0, 0, S, S); g.save(); g.beginPath(); g.arc(c, c, c - 1, 0, 6.3); g.clip();
     g.strokeStyle = 'rgba(238,243,234,0.18)'; g.lineWidth = 1; g.beginPath(); g.arc(c, c, c / 2, 0, 6.3); g.stroke();
-    var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, cs = [P(-f.len / 2, -f.wid / 2), P(-f.len / 2, f.wid / 2), P(f.len / 2, f.wid / 2), P(f.len / 2, -f.wid / 2)];
-    g.beginPath(); for (i = 0; i < 4; i++) g[i ? 'lineTo' : 'moveTo'](X(cs[i][0], cs[i][1]), Y(cs[i][0], cs[i][1])); g.closePath(); g.fillStyle = f.done ? 'rgba(123,227,106,0.25)' : 'rgba(243,192,16,0.30)'; g.fill(); g.strokeStyle = f.done ? '#7be36a' : '#f3c010'; g.lineWidth = 1.5; g.stroke();
-    if (tgt) { var wc = -f.wid / 2 + (tgt.i + 0.5) * SWATH, a = P(-f.len / 2, wc), b = P(f.len / 2, wc); g.beginPath(); g.moveTo(X(a[0], a[1]), Y(a[0], a[1])); g.lineTo(X(b[0], b[1]), Y(b[0], b[1])); g.strokeStyle = '#fff6c0'; g.lineWidth = 1.5; g.stroke(); }
+    var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, cs;
+    for (fi = 0; fi < ACTIVE.length; fi++) { f = ACTIVE[fi]; cs = [P(-f.len / 2, -f.wid / 2), P(-f.len / 2, f.wid / 2), P(f.len / 2, f.wid / 2), P(f.len / 2, -f.wid / 2)];
+    g.beginPath(); for (i = 0; i < 4; i++) g[i ? 'lineTo' : 'moveTo'](X(cs[i][0], cs[i][1]), Y(cs[i][0], cs[i][1])); g.closePath(); g.fillStyle = f.done ? 'rgba(123,227,106,0.25)' : 'rgba(243,192,16,0.30)'; g.fill(); g.strokeStyle = f.done ? '#7be36a' : '#f3c010'; g.lineWidth = 1.5; g.stroke(); }
+    if (tgt) { f = tgt.f; var wc = -f.wid / 2 + (tgt.i + 0.5) * SWATH, a = P(-f.len / 2, wc), b = P(f.len / 2, wc); g.beginPath(); g.moveTo(X(a[0], a[1]), Y(a[0], a[1])); g.lineTo(X(b[0], b[1]), Y(b[0], b[1])); g.strokeStyle = '#fff6c0'; g.lineWidth = 1.5; g.stroke(); }
     g.beginPath(); g.moveTo(X(0, -RWY_HL), Y(0, -RWY_HL)); g.lineTo(X(0, RWY_HL), Y(0, RWY_HL)); g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
     g.restore();
     // fora do alcance: ponto na borda, na direção certa
     var rim = function (x, z, col) { var mx = X(x, z) - c, my = Y(x, z) - c, d = Math.sqrt(mx * mx + my * my); if (d < c - 4) return; g.beginPath(); g.arc(c + mx / d * (c - 4), c + my / d * (c - 4), 4, 0, 6.3); g.fillStyle = col; g.fill(); };
-    rim(f.cx, f.cz, f.done ? '#7be36a' : '#f3c010'); rim(0, 0, '#ffffff');
+    ACTIVE.forEach(function (x) { rim(x.cx, x.cz, x.done ? '#7be36a' : '#f3c010'); }); rim(0, 0, '#ffffff');
     g.beginPath(); g.moveTo(c, c - 7); g.lineTo(c + 5, c + 5); g.lineTo(c, c + 2); g.lineTo(c - 5, c + 5); g.closePath(); g.fillStyle = '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1; g.fill(); g.stroke();
     var nx = c + -sp * (c - 9), ny = c - cp * (c - 9); g.font = '700 9px ' + FNT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff8a7a'; g.fillText('N', nx, ny);
   }
@@ -384,13 +399,13 @@
     var vcls = (vs > 0 ? 'up' : (vs < 0 ? 'dn' : 'lvl')) + (low && vs <= -670 ? ' bad' : (low && vs <= -370 ? ' warn' : ''));
     if (vs !== vsShown || vcls !== vsCls) { vsShown = vs; vsCls = vcls; $('vsi-v').textContent = Math.abs(vs); $('vsi').className = vcls; }
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
-    $('h-cov').textContent = 'ÁREA ' + Math.round(mission.cov / mission.grid.length * 100) + '%';
+    var rf = ref(); $('h-cov').textContent = 'ÁREA ' + Math.round(rf.cov / rf.grid.length * 100) + '%';
     var dm = flight.dmg, dl = []; if (dm.gear === 1) dl.push('TREM AVARIADO'); if (dm.gear === 2) dl.push('SEM TREM'); if (dm.wingL) dl.push('ASA E'); if (dm.wingR) dl.push('ASA D'); if (dm.engine) dl.push('MOTOR'); if (dm.fire) dl.push('FOGO'); if (dm.tail) dl.push('CAUDA');
     $('h-dmg').textContent = dl.join(' · ');
     var w = '', wc2 = '';
     if (dm.fire) { w = 'FOGO NO MOTOR'; wc2 = 'bad'; }
-    else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; }
-    else if (spraying && flight.agl > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; }
+    else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; talk('Olha a velocidade! Nariz pra baixo e manete à frente.', 'stall', true); }
+    else if (spraying && flight.agl > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; talk('Tá alto, comandante! Acima de 65 pés o produto vai embora no vento.', 'high'); }
     else if (!flight.onGround && flight.agl < 2.2 && flight.vel.y < -0.5) { w = 'SOLO'; wc2 = 'bad'; }
     $('warn').textContent = w; $('warn').className = wc2;
   }
@@ -398,15 +413,16 @@
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    START.hopper = missionLoad(mission); flight.reset(START); resetFields(mission); world.markField(mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
+    START.hopper = free ? 1890 : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
-    wasGround = true; stats.applied = stats.waste = stats.time = 0; nav.atField = nav.atRwy = nav.land = false; nav.bnT = 0; show('banner', false); pinF.visible = pinR.visible = false; pinF.setText(mission.farm.toUpperCase(), mission.name.toUpperCase()); plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
+    wasGround = true; stats.applied = stats.waste = stats.time = 0; nav.at = null; nav.atRwy = nav.land = false; talkQ.length = 0; talkT = 0; said = {}; show('nal', false); $('hud').classList.remove('talk'); nav.bnT = 0; show('banner', false); pinF.visible = pinR.visible = false; pinF.setText(mission.farm.toUpperCase(), mission.name.toUpperCase()); plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    say('Missão: ' + mission.prod + ' na ' + mission.farm + ', ' + mission.name + '. Decole e siga o arco.', 8);
+    if (free) say('Voo livre. Hopper cheio: os três talhões aceitam aplicação.', 6);
+    else { talk('Fala, comandante! Aqui é o Naldinho, teu instrutor. Hoje é ' + mission.prod + ' no ' + mission.name + ' da ' + mission.farm + '.', 'hello'); talk('Taxia pelos pedais, flape 1, manete toda à frente e puxa com 75 nós. Depois é só seguir o pino verde.', 'takeoff'); }
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
   function pause(on) {
@@ -420,8 +436,8 @@
   function finish(crash) {
     state = 'end'; show('hud', false); toggleSpray(false); pinF.visible = pinR.visible = false; show('banner', false);
     var tot = 0, cov = 0, ov = 0, rows = '';
-    ACTIVE.forEach(function (f) { tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
-    var cp = cov / tot * 100, op = ov / tot * 100, wp = stats.applied > 0 ? stats.waste / stats.applied * 100 : 0;
+    ACTIVE.forEach(function (f) { if (free && !f.cov) return; tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.farm + ' · ' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
+    tot = tot || 1; var cp = cov / tot * 100, op = ov / tot * 100, wp = stats.applied > 0 ? stats.waste / stats.applied * 100 : 0;
     var onRwy = Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL;
     var dm = flight.dmg, dl = [], pen = 0;
     if (dm.gear === 1) { dl.push('trem de pouso avariado'); pen += 10; } if (dm.gear === 2) { dl.push('trem de pouso perdido'); pen += 20; }
@@ -440,7 +456,11 @@
     try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { }
     if (lv1 > lv0) notes.push('Subiu para o nível ' + lv1);
     rwQ.length = 0; show('reward', false); show('msg', false);
-    $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')); rows = '<tr><td>' + mission.farm + ' · ' + mission.name + '</td><td>' + fmt(cp, 1) + '%</td><td>' + fmt(op, 1) + '%</td></tr>';
+    $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (free ? 'Voo livre encerrado' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')));
+    var nq = '';
+    if (!free) { if (mission.done && !wallet.tut) { wallet.tut = true; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push('Voo livre liberado'); }
+      nq = crash ? 'Naldinho: “Avião a gente conserta, comandante. O importante é aprender onde errou. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “O talhão ficou pronto, mas o avião voltou torto. Na próxima, capricha no pouso.”' : 'Naldinho: “Missão cumprida, comandante! Agora o céu é teu: o voo livre está liberado.”') : 'Naldinho: “Ficou faixa sem fazer. Volta lá e fecha o talhão que eu libero o voo livre.”'); }
+    $('end-nal').textContent = nq; show('end-nal', !!nq);
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
     $('end-body').innerHTML = '<table><thead><tr><th></th><th>Cobertura</th><th>Sobreposição</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<p>Produto aplicado: <b>' + Math.round(stats.applied) + ' L</b> · perdido fora do alvo ou por deriva: <b>' + Math.round(stats.waste) + ' L</b> · tempo: <b>' + Math.floor(stats.time / 60) + ' min ' + Math.round(stats.time % 60) + ' s</b></p>' +
@@ -451,14 +471,15 @@
     $('end').classList.toggle('crash', bad); show('end', true);
   }
   function paintMissions() {
-    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40); box.textContent = '';
-    if (mission.lvl > lv) mission = FIELDS[0];
-    FIELDS.forEach(function (f) {
-      var b = document.createElement('button'), locked = f.lvl > lv; b.type = 'button'; b.className = 'mis' + (f === mission ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', f === mission ? 'true' : 'false');
-      var t = document.createElement('b'); t.textContent = f.farm; var d = document.createElement('span');
-      d.textContent = locked ? 'Libera no nível ' + f.lvl : f.prod + ' · ' + f.name + ' · ' + Math.round(missionHa(f)) + ' ha · ' + (f.wid / SWATH) + ' faixas de ' + f.len + ' m';
-      b.appendChild(t); b.appendChild(d); b.addEventListener('click', function () { mission = f; paintMissions(); resetGame(); }); box.appendChild(b);
-    });
+    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40), f = FIELDS[0]; box.textContent = '';
+    if (free && !wallet.tut) free = false;
+    var add = function (title, desc, isFree, locked) {
+      var b = document.createElement('button'), sel = free === isFree; b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      var t = document.createElement('b'); t.textContent = title; var d = document.createElement('span'); d.textContent = desc; b.appendChild(t); b.appendChild(d);
+      b.addEventListener('click', function () { free = isFree; paintMissions(); resetGame(); }); box.appendChild(b);
+    };
+    add('Missão 1 · ' + f.farm, 'Com o instrutor Naldinho · ' + f.prod + ' no ' + f.name + ' · ' + (f.wid / SWATH) + ' faixas de ' + f.len + ' m' + (wallet.tut ? ' · concluída' : ''), false, false);
+    add('Voo livre', wallet.tut ? 'Hopper cheio e três talhões para aplicar à vontade' : 'Libera ao concluir a Missão 1', true, !wallet.tut);
     $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
   tap('m-tilt', function () {
@@ -544,7 +565,7 @@
   function onEvent(ev) {
     var dm = flight.dmg;
     if (ev === 'touch') sfx('touch', flight.lastSink);
-    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); say('Quicou. Segure a atitude e deixe o avião assentar.', 3); }
+    else if (ev === 'bounce') { sfx('touch', flight.lastSink + 1); if (free) say('Quicou. Segure a atitude e deixe o avião assentar.', 3); else talk('Quicou! Segura o manche parado e deixa ele assentar sozinho.', 'bounce', true); }
     else if (ev === 'gearDamage') { sfx('crunch'); say('Pouso duro: trem de pouso avariado. O próximo toque forte derruba o trem.', 6); }
     else if (ev === 'gearCollapse') { sfx('crunch'); plane.gearParts.forEach(function (m) { m.visible = false; }); say('O trem de pouso cedeu.', 5); }
     else if (ev === 'slide') { sfx('crunch'); toggleSpray(false); }
@@ -569,12 +590,12 @@
     for (var si = 0; si < n; si++) { flight.step(h, ctl, windNow); if (!flight.crashed && !flight.onGround) hitWires(); }
     if (!flight.crashed && (!flight.onGround || Math.abs(flight.vf) > 3)) hitObjects();
     while (flight.events.length) onEvent(flight.events.shift());
-    if (flight.onGround !== wasGround) { if (!flight.onGround) sfx('lift'); wasGround = flight.onGround; }
+    if (flight.onGround !== wasGround) { if (!flight.onGround) { sfx('lift'); talk('Saiu do chão! Recolhe o flape e segue o arco até o pino verde.', 'lift', true); } wasGround = flight.onGround; }
     if (flight.crashed) { wreckT += dt; if (wreckT > 3.2) finish(flight.crashed); return; }
     // aplicação
     if (spraying && flight.hopper > 0) {
       var gs = Math.sqrt(flight.vel.x * flight.vel.x + flight.vel.z * flight.vel.z);
-      var lit = Math.min(flight.hopper, mission.rate * SWATH * Math.max(gs, 20) / 10000 * dt);
+      var lit = Math.min(flight.hopper, ref().rate * SWATH * Math.max(gs, 20) / 10000 * dt);
       flight.hopper -= lit; stats.applied += lit;
       spray.emit(flight, 9);
       var frac = 0;
@@ -590,8 +611,8 @@
     updateGame(dt);
     ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
-    if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
-    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer: siga o pino branco e o arco.', tier: 2 }); }
+    if (free && !hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Sobre o talhão, desça abaixo de 65 ft e ligue a aplicação.', 7); }
+    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer: siga o pino branco e o arco.', tier: 2 }); talk('Talhão fechado! Agora volta pra casa: pino branco, Pista Scheffer.', 'home'); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
@@ -662,5 +683,5 @@
     requestAnimationFrame(frame);
   }
   layout(); paintMissions(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: ACTIVE, all: FIELDS, get mission() { return mission; }, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: ACTIVE, all: FIELDS, get mission() { return mission; }, get free() { return free; }, get talking() { return document.getElementById('nal-t').textContent; }, stats: stats };
 })();
