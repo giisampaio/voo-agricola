@@ -251,6 +251,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
         <button class="ghost" id="o-sens" type="button">Sensibilidade</button>
         <button class="ghost" id="o-inv" type="button">Arfagem</button>
         <button class="ghost" id="o-snd" type="button">Som</button>
+        <button class="ghost" id="o-gfx" type="button">Gráficos</button>
       </div>
       <p class="sub">Manete abaixo do batente é reverso, só no solo. Assistido: o avião acompanha a inclinação e segura a altura nas curvas. Direto: aileron e profundor crus, com estol e queda de asa por sua conta.</p>
       <div class="row">
@@ -1266,7 +1267,8 @@ function makeAudio(c) {
 
   // ---------- estado ----------
   var state = 'menu', mode = 'stick', camMode = 0, spraying = false, throttle = 0;
-  var opt = { assist: true, sens: 1, invert: false, sound: true };
+  var opt = { assist: true, sens: 1, invert: false, sound: true, gfx: 0 };
+  try { if (localStorage.getItem('voo-agricola.gfx') === '1') opt.gfx = 1; } catch (e) { }
   var ctl = { throttle: 0, reverse: 0, brake: 0, yaw: 0, pitch: 0, roll: 0, assist: true, mu: 0.045 };
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
@@ -1760,6 +1762,7 @@ function makeAudio(c) {
   optBtn('o-assist', 'Comando', ['direto (manche)', 'assistido'], function () { return opt.assist ? 1 : 0; }, function (v) { opt.assist = !!v; });
   optBtn('o-sens', 'Sensibilidade', ['baixa', 'média', 'alta'], function () { return opt.sens; }, function (v) { opt.sens = v; });
   optBtn('o-inv', 'Arfagem', ['normal', 'invertida'], function () { return opt.invert ? 1 : 0; }, function (v) { opt.invert = !!v; });
+  optBtn('o-gfx', 'Gráficos', ['automático', 'sempre no máximo'], function () { return opt.gfx; }, function (v) { opt.gfx = v; if (v) setQuality(0); try { localStorage.setItem('voo-agricola.gfx', String(v)); } catch (e) { } });
   optBtn('o-snd', 'Som', ['desligado', 'ligado'], function () { return opt.sound ? 1 : 0; }, function (v) { opt.sound = !!v; if (v) initAudio(); });
   document.addEventListener('visibilitychange', function () { if (document.hidden) pause(true); });
 
@@ -1921,14 +1924,18 @@ function makeAudio(c) {
     world.sky.position.copy(camera.position); world.sky.material.uniforms.time.value += dt;
   }
 
-  var last = performance.now(), fAvg = 1 / 60, fSlow = 0, quality = 0;
+  var last = performance.now(), fAvg = 1 / 60, fVar = 0, fSlow = 0, fFast = 0, quality = 0, PR0 = PR;
+  function setQuality(q) { quality = clamp(q, 0, 3); PR = Math.min(PR0, [PR0, 1.5, 1.15, 1.15][quality]); world.sun.castShadow = quality < 3; renderer.setPixelRatio(PR); layout(); fAvg = 1 / 60; fVar = 0; }
   function frame(t) {
     var dt = Math.min(0.05, Math.max(0.001, (t - last) / 1000)); last = t;
-    // se o aparelho não segura a taxa de quadros, reduz a resolução e depois a sombra
-    fAvg += (dt - fAvg) * 0.05;
-    if (state === 'play' && fAvg > 1 / 48) { fSlow += dt; if (fSlow > 2.5 && quality < 3) { quality++; fSlow = 0; fAvg = 1 / 60;
-      if (quality === 1) PR = Math.min(PR, 1.5); else if (quality === 2) PR = Math.min(PR, 1.15); else world.sun.castShadow = false;
-      renderer.setPixelRatio(PR); layout(); } } else fSlow = 0;
+    // qualidade automática: só reduz se o aparelho estiver mesmo engasgando. Uma taxa estável de 30 quadros
+    // (Modo Pouca Energia do iPhone limita o navegador a 30) não conta como lentidão.
+    fAvg += (dt - fAvg) * 0.05; fVar += (Math.abs(dt - fAvg) - fVar) * 0.05;
+    var capped = fAvg > 1 / 37 && fAvg < 1 / 26 && fVar < 0.006, slow = fAvg > 1 / 22 || (fAvg > 1 / 46 && !capped);
+    if (state === 'play' && opt.gfx === 0) {
+      if (slow) { fSlow += dt; fFast = 0; if (fSlow > 3 && quality < 3) { fSlow = 0; setQuality(quality + 1); } }
+      else { fSlow = 0; if (quality > 0 && (fAvg < 1 / 54 || capped)) { fFast += dt; if (fFast > 10) { fFast = 0; setQuality(quality - 1); } } else fFast = 0; }
+    }
     if (state === 'play') { simulate(dt); if (state === 'play') updateHud(dt); }
     if (state === 'calib') {
       var a = tiltAngles(tilt.sx, tilt.sy, tilt.sz);
@@ -1940,7 +1947,7 @@ function makeAudio(c) {
     requestAnimationFrame(frame);
   }
   layout(); paintMissions(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: ACTIVE, all: FIELDS, get mission() { return mission; }, get free() { return free; }, get talking() { return document.getElementById('nal-t').textContent; }, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, get fps() { return Math.round(1 / fAvg); }, rud: rud, setFlap: setFlap, opt: opt, fields: ACTIVE, all: FIELDS, get mission() { return mission; }, get free() { return free; }, get talking() { return document.getElementById('nal-t').textContent; }, stats: stats };
 })();
 
 </script>
