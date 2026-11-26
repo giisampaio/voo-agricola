@@ -109,7 +109,7 @@ Flight.prototype._ground = function (dt, c, wind) {
     this.vf = Math.max(nv, -3);
   }
   // direção pela bequilha / leme
-  var av = Math.abs(this.vf), steer = clamp((c.yaw || 0) + c.roll, -1, 1);
+  var av = Math.abs(this.vf), steer = clamp(c.yaw || 0, -1, 1);                    // no solo, só o pedal dirige
   if (this.belly) steer = 0; else if (this.dmg.gear === 1) steer = clamp(steer + 0.2 * Math.min(1, av / 8), -1, 1);   // trem avariado puxa para um lado
   var yr = steer * 0.55 * (1 + 0.8 * brk / (1 + av / 6)) * Math.min(1, av / 5) / (1 + av / 22) * (this.vf < 0 ? -1 : 1);
   this.psi += yr * dt;

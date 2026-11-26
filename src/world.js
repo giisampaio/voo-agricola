@@ -351,11 +351,12 @@ function makeSpray(scene) {
     vertexShader: 'attribute float aA; varying float vA; uniform float uScale; void main(){ vA = aA; vec4 mv = modelViewMatrix*vec4(position,1.0); gl_PointSize = min(64.0, (0.8 + (1.0-aA)*2.6)*uScale/max(1.0,-mv.z)); gl_Position = projectionMatrix*mv; }',
     fragmentShader: 'precision mediump float; varying float vA; void main(){ float d = length(gl_PointCoord-0.5); if (d>0.5) discard; gl_FragColor = vec4(0.94,0.97,1.0, vA*0.30*(1.0-d*2.0)); }'
   });
-  var pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 20; scene.add(pts);
+  var pts = new THREE.Points(g, mat), sIdle = true; pts.frustumCulled = false; pts.visible = false; pts.renderOrder = 20; scene.add(pts);
   var v = new THREE.Vector3();
   return {
     mat: mat,
     emit: function (fl, count) {
+      sIdle = false; pts.visible = true;
       for (var i = 0; i < count; i++) {
         var k = head; head = (head + 1) % N;
         v.set((Math.random() * 2 - 1) * 6.6, -0.85, 0.9).applyQuaternion(fl.quat).add(fl.pos);
@@ -365,17 +366,20 @@ function makeSpray(scene) {
       }
     },
     update: function (dt) {
-      var dmp = Math.max(0, 1 - 2.2 * dt);
+      if (sIdle) return;
+      var dmp = Math.max(0, 1 - 2.2 * dt), alive = 0;
       for (var k = 0; k < N; k++) {
         if (life[k] <= 0) { al[k] = 0; continue; }
+        alive++;
         life[k] -= dt / 1.7; vel[k * 3] *= dmp; vel[k * 3 + 2] *= dmp;
         pos[k * 3] += vel[k * 3] * dt; pos[k * 3 + 1] += vel[k * 3 + 1] * dt; pos[k * 3 + 2] += vel[k * 3 + 2] * dt;
         if (pos[k * 3 + 1] < 0.1) life[k] = 0;
         al[k] = Math.max(0, life[k]);
       }
       g.attributes.position.needsUpdate = true; g.attributes.aA.needsUpdate = true;
+      if (!alive) { sIdle = true; pts.visible = false; }
     },
-    clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; }
+    clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; sIdle = true; pts.visible = false; }
   };
 }
 
@@ -389,22 +393,25 @@ function makePuffs(scene, N, o) {
     vertexShader: 'attribute float aA; attribute float aS; varying float vA; uniform float uScale; void main(){ vA = aA; vec4 mv = modelViewMatrix*vec4(position,1.0); gl_PointSize = min(256.0, aS*uScale/max(1.0,-mv.z)); gl_Position = projectionMatrix*mv; }',
     fragmentShader: 'precision mediump float; varying float vA; uniform vec3 c0; uniform vec3 c1; uniform float uA; void main(){ float d = length(gl_PointCoord-0.5); if (d>0.5 || vA<=0.0) discard; float f = min(1.0, vA*2.5)*min(1.0,(1.0-vA)*8.0+0.25); gl_FragColor = vec4(mix(c1, c0, vA), uA*f*(1.0-d*2.0)); }'
   });
-  var pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = o.additive ? 22 : 21; scene.add(pts);
+  var pts = new THREE.Points(g, mat), idle = true; pts.frustumCulled = false; pts.visible = false; pts.renderOrder = o.additive ? 22 : 21; scene.add(pts);
   return {
     mat: mat,
-    emit: function (x, y, z, vx, vy, vz, sec, a, b) { var k = head; head = (head + 1) % N; pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z; vel[k * 3] = vx; vel[k * 3 + 1] = vy; vel[k * 3 + 2] = vz; life[k] = 1; span[k] = sec; s0[k] = a; s1[k] = b; },
+    emit: function (x, y, z, vx, vy, vz, sec, a, b) { idle = false; pts.visible = true; var k = head; head = (head + 1) % N; pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z; vel[k * 3] = vx; vel[k * 3 + 1] = vy; vel[k * 3 + 2] = vz; life[k] = 1; span[k] = sec; s0[k] = a; s1[k] = b; },
     update: function (dt) {
-      var dmp = Math.max(0, 1 - o.drag * dt);
+      if (idle) return;
+      var dmp = Math.max(0, 1 - o.drag * dt), alive = 0;
       for (var k = 0; k < N; k++) {
         if (life[k] <= 0) { al[k] = 0; continue; }
+        alive++;
         life[k] -= dt / span[k]; vel[k * 3] *= dmp; vel[k * 3 + 2] *= dmp; vel[k * 3 + 1] += (o.rise - vel[k * 3 + 1]) * Math.min(1, dt * 1.5);
         pos[k * 3] += vel[k * 3] * dt; pos[k * 3 + 1] += vel[k * 3 + 1] * dt; pos[k * 3 + 2] += vel[k * 3 + 2] * dt;
         if (pos[k * 3 + 1] < 0.1) pos[k * 3 + 1] = 0.1;
         al[k] = Math.max(0, life[k]); sz[k] = s0[k] + (s1[k] - s0[k]) * (1 - al[k]);
       }
       g.attributes.position.needsUpdate = true; g.attributes.aA.needsUpdate = true; g.attributes.aS.needsUpdate = true;
+      if (!alive) { idle = true; pts.visible = false; }
     },
-    clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; }
+    clear: function () { life.fill(0); al.fill(0); g.attributes.aA.needsUpdate = true; idle = true; pts.visible = false; }
   };
 }
 
