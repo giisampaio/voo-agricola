@@ -154,7 +154,7 @@
     if (mode === 'tilt') {
       var a = tiltAngles(tilt.sx, tilt.sy, tilt.sz), f = Math.min(1, dt / 0.06);
       tilt.roll += (wrap(a.r - tilt.r0) - tilt.roll) * f; tilt.pitch += ((a.p - tilt.p0) - tilt.pitch) * f;
-      var rr = [46, 36, 26][opt.sens] * D2R, pr = [30, 22, 15][opt.sens] * D2R;
+      var rr = [38, 28, 20][opt.sens] * D2R, pr = [30, 22, 15][opt.sens] * D2R;
       roll = expo(clamp(tilt.roll / rr, -1, 1)); pitch = expo(clamp(-tilt.pitch / pr, -1, 1));
       if (performance.now() - tilt.last > 1500) { mode = 'stick'; applyMode(); say('Sensor parou de responder. Manche na tela ativado.', 5); }
     } else { roll = expo(joy.x); pitch = expo(joy.y); }

@@ -382,17 +382,21 @@ Flight.prototype._air = function (dt, c, wind) {
   if (c.assist) {
     // taxa de arfagem própria da curva (não deve ser amortecida nem contada como erro)
     var ph = clamp(this.phi, -1.2, 1.2), qTurn = G * Math.sin(ph) * Math.tan(ph) / V;
-    var ge = c.pitch * 25 * D2R - this.gamma;
+    var ge = c.pitch * 32 * D2R - this.gamma;
     this.gI = clamp((this.gI || 0) + ge * dt * 1.5, -0.3, 0.3);
     de = 4.5 * ge + this.gI - 0.4 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
     if (alpha > AC.aWarn) de -= (alpha - AC.aWarn) * 25;             // proteção de ângulo de ataque
     de = clamp(de, -1, 1);
     // inclinação comandada até 75°, limitada ao que a asa sustenta em curva nivelada com a velocidade e o peso atuais
     var nAv = qS * (co.cl0 + AC.CLA * AC.aWarn) * (nW ? 0.5 : 1) / W;
-    var phiMax = nAv > 1.06 ? Math.min(75 * D2R, Math.acos(1 / (nAv * 0.95))) : 0.2;
-    phiMax = Math.min(phiMax, Math.asin(clamp((this.pos.y - this.groundY - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
+    var hgt = this.pos.y - this.groundY, BMAX = 80 * D2R;
+    var phiMax = nAv > 1.06 ? Math.min(BMAX, Math.acos(1 / (nAv * 0.95))) : 0.2;
+    // com altura sobrando o limite de sustentação some: dá para deitar a asa no topo do balão e deixar o nariz cair
+    var sink = -this.vel.y, rec = sink > 1 ? sstep(hgt / sink, 2.5, 6) : 1;     // segundos até o chão no ritmo atual de descida
+    phiMax = phiMax * (0.3 + 0.7 * rec) + (BMAX - phiMax) * sstep(hgt, 14, 38) * rec;  // afundando perto do chão: desinclina para recuperar
+    phiMax = Math.min(phiMax, Math.asin(clamp((hgt - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
     this.phiMax = phiMax;
-    da = clamp(3.0 * (clamp(c.roll * 75 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);
+    da = clamp(3.0 * (clamp(c.roll * 80 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);
   } else { de = clamp(c.pitch, -1, 1); da = clamp(c.roll, -1, 1); }
   // compensador automático (mantém ~1 g com o manche neutro)
   var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.25) : 1);
@@ -1263,7 +1267,7 @@ function makeAudio(c) {
     if (mode === 'tilt') {
       var a = tiltAngles(tilt.sx, tilt.sy, tilt.sz), f = Math.min(1, dt / 0.06);
       tilt.roll += (wrap(a.r - tilt.r0) - tilt.roll) * f; tilt.pitch += ((a.p - tilt.p0) - tilt.pitch) * f;
-      var rr = [46, 36, 26][opt.sens] * D2R, pr = [30, 22, 15][opt.sens] * D2R;
+      var rr = [38, 28, 20][opt.sens] * D2R, pr = [30, 22, 15][opt.sens] * D2R;
       roll = expo(clamp(tilt.roll / rr, -1, 1)); pitch = expo(clamp(-tilt.pitch / pr, -1, 1));
       if (performance.now() - tilt.last > 1500) { mode = 'stick'; applyMode(); say('Sensor parou de responder. Manche na tela ativado.', 5); }
     } else { roll = expo(joy.x); pitch = expo(joy.y); }
