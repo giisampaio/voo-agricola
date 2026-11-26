@@ -26,7 +26,8 @@
   var stats = { applied: 0, waste: 0, time: 0 };
   var wind = new THREE.Vector3(-1.4, 0, 1.6), windNow = new THREE.Vector3(), simT = 0;
   var hint = { t: 0, flap: false, empty: false, done: false };
-  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 };
+  var START = { x: 0, z: 415, psi: 0, hopper: 1200, flap: 1 }, mission = FIELDS[0];
+  var missionHa = function (f) { return f.len * f.wid / 10000; }, missionLoad = function (f) { return Math.min(1890, Math.ceil(missionHa(f) * f.rate * 1.06 / 50) * 50); };
   var rotated = false, SW = 2, SH = 1;
   var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion();
 
@@ -193,7 +194,7 @@
   var hudT = 0, ledOn = -1;
   function guidance() {
     var best = null, bd = 450, px = flight.pos.x, pz = flight.pos.z;
-    FIELDS.forEach(function (f) {
+    ACTIVE.forEach(function (f) {
       var u = (px - f.cx) * f.ux + (pz - f.cz) * f.uz, w = (px - f.cx) * f.wx + (pz - f.cz) * f.wz;
       var d = Math.max(Math.abs(w) - f.wid / 2, 0) + Math.max(Math.abs(u) - f.len / 2, 0) * 0.35;
       if (d < bd) { bd = d; best = { f: f, u: u, w: w }; }
@@ -245,7 +246,7 @@
   var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0 };
   try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; } } catch (e) { }
   var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
-  var TIER = [null, { q: 0.72, c: 30, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 50, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 100, xp: 5, t: 'Faixa perfeita' }];
+  var COIN_M = 1, TIER = [null, { q: 0.72, c: 40, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 80, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 150, xp: 5, t: 'Faixa perfeita' }];
   var level = function () { return 1 + Math.floor((wallet.xp + bank.xp) / 40); };
   function award(c, xp, label, tier) { bank.coins += c; bank.xp += xp; rwQ.push({ c: c, xp: xp, t: label, tier: tier || 1 }); }
   function locUW(f) { var px = flight.pos.x - f.cx, pz = flight.pos.z - f.cz; return { u: px * f.ux + pz * f.uz, w: px * f.wx + pz * f.wz }; }
@@ -263,23 +264,20 @@
     }
   }
   function pickTarget() {
-    var best = null, bc = 1e9;
-    FIELDS.forEach(function (f) {
-      if (f.done) return; var l = locUW(f), dF = Math.max(Math.abs(l.w) - f.wid / 2, 0) + Math.max(Math.abs(l.u) - f.len / 2, 0);
-      for (var i = 0; i < f.nSw; i++) { if (f.tier[i]) continue; var wc = -f.wid / 2 + (i + 0.5) * SWATH, c = Math.abs(l.w - wc) + dF * 1.5 + (curF && curF !== f && !curF.done ? 800 : 0); if (c < bc) { bc = c; best = { f: f, i: i }; } }
-    });
-    return best;
+    var f = ACTIVE[0]; if (!f || f.done) return null;
+    for (var k = 0, h = f.nSw / 2; k < f.nSw; k++) { var i = k % 2 === 0 ? k / 2 : (k - 1) / 2 + h; if (!f.tier[i]) return { f: f, i: i }; }
+    return null;
   }
   function updateGame(dt) {
     var i, f;
-    for (i = 0; i < FIELDS.length; i++) {
-      f = FIELDS[i];
-      if (f.fresh) { var gain = 5 * f.fresh / SWATH; bank.coins += gain; bank.tick += gain; f.fresh = 0; f.evalPending = true; if (bank.tick >= 120) { bank.tick = 0; sfx('coin'); } }
+    for (i = 0; i < ACTIVE.length; i++) {
+      f = ACTIVE[i];
+      if (f.fresh) { var gain = COIN_M * f.fresh / SWATH; bank.coins += gain; bank.tick += gain; f.fresh = 0; f.evalPending = true; if (bank.tick >= 30) { bank.tick = 0; sfx('coin'); } }
       if (f.evalPending && simT - f.lastHit > 1.0) { f.evalPending = false; evaluate(f); }
     }
     // faixa-alvo: a que está sendo aplicada; fora dela, a pendente mais próxima
     var pass = null;
-    if (spraying && !flight.onGround) for (i = 0; i < FIELDS.length; i++) { f = FIELDS[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
+    if (spraying && !flight.onGround) for (i = 0; i < ACTIVE.length; i++) { f = ACTIVE[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
     tgtT -= dt;
     if (pass) { if (!tgt || tgt.f !== pass.f || tgt.i !== pass.i) { tgt = pass; world.setLane(tgt.f, tgt.i); } tgtT = 1.2; }
     else if (tgtT <= 0) { tgtT = 0.4; var n = pickTarget(); if ((n && (!tgt || n.f !== tgt.f || n.i !== tgt.i)) || (!n && tgt)) { tgt = n; world.setLane(n && n.f, n && n.i); } }
@@ -301,8 +299,8 @@
       if (Math.abs(l.u) < f.len / 2 + 20 && Math.abs(l.w - wc) < SWATH * 0.9 && Math.abs(hx) > 0.8) { au = l.u + (hx > 0 ? 170 : -170); dist = f.len / 2 - l.u * (hx > 0 ? 1 : -1); label = 'FAIXA ' + (tgt.i + 1) + ' · FIM EM '; }
       else {
         E = Math.abs(l.u) > f.len / 2 ? (l.u > 0 ? 1 : -1) : (hx >= 0 ? 1 : -1);
-        var aligned = Math.abs(l.w - wc) < 45 && hx * E < -0.5 && Math.abs(l.u) > f.len / 2;
-        au = E * (f.len / 2 + (aligned ? clamp(Math.abs(l.u) - f.len / 2 - 80, 0, 220) : 220));
+        var aligned = Math.abs(l.w - wc) < 60 && hx * E < -0.5 && Math.abs(l.u) > f.len / 2;
+        au = E * (f.len / 2 + (aligned ? clamp(Math.abs(l.u) - f.len / 2 - 100, 0, 380) : 380));
         var du = E * f.len / 2 - l.u, dw = wc - l.w; dist = Math.sqrt(du * du + dw * dw); label = 'FAIXA ' + (tgt.i + 1) + ' · ';
       }
       ax = f.cx + f.ux * au + f.wx * wc; az = f.cz + f.uz * au + f.wz * wc;
@@ -341,7 +339,7 @@
     var vcls = (vs > 0 ? 'up' : (vs < 0 ? 'dn' : 'lvl')) + (low && vs <= -670 ? ' bad' : (low && vs <= -370 ? ' warn' : ''));
     if (vs !== vsShown || vcls !== vsCls) { vsShown = vs; vsCls = vcls; $('vsi-v').textContent = Math.abs(vs); $('vsi').className = vcls; }
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
-    $('h-cov').textContent = FIELDS.map(function (f, k) { return 'T' + (k + 1) + ' ' + Math.round(f.cov / f.grid.length * 100) + '%'; }).join(' ');
+    $('h-cov').textContent = 'ÁREA ' + Math.round(mission.cov / mission.grid.length * 100) + '%';
     var dm = flight.dmg, dl = []; if (dm.gear === 1) dl.push('TREM AVARIADO'); if (dm.gear === 2) dl.push('SEM TREM'); if (dm.wingL) dl.push('ASA E'); if (dm.wingR) dl.push('ASA D'); if (dm.engine) dl.push('MOTOR'); if (dm.fire) dl.push('FOGO'); if (dm.tail) dl.push('CAUDA');
     $('h-dmg').textContent = dl.join(' · ');
     var w = '', wc2 = '';
@@ -355,7 +353,7 @@
   // ---------- telas ----------
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
-    flight.reset(START); resetFields(); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
+    START.hopper = missionLoad(mission); flight.reset(START); resetFields(mission); world.markField(mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
     wasGround = true; stats.applied = stats.waste = stats.time = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
@@ -363,7 +361,7 @@
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
     ['menu', 'calib', 'pause', 'end'].forEach(function (id) { show(id, false); }); show('hud', true);
-    say('Flape 1 armado. Potência total e puxe ao passar de 75 kt.', 6);
+    say('Missão: ' + mission.prod + ' na ' + mission.farm + ', ' + mission.name + '. Decole e siga o arco.', 8);
     try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
   }
   function pause(on) {
@@ -377,7 +375,7 @@
   function finish(crash) {
     state = 'end'; show('hud', false); toggleSpray(false);
     var tot = 0, cov = 0, ov = 0, rows = '';
-    FIELDS.forEach(function (f) { tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
+    ACTIVE.forEach(function (f) { tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
     var cp = cov / tot * 100, op = ov / tot * 100, wp = stats.applied > 0 ? stats.waste / stats.applied * 100 : 0;
     var onRwy = Math.abs(flight.pos.x) < RWY_HW && Math.abs(flight.pos.z) < RWY_HL;
     var dm = flight.dmg, dl = [], pen = 0;
@@ -388,7 +386,7 @@
     var dtxt = dl.length ? dl.join(', ') : ''; if (dtxt) dtxt = dtxt.charAt(0).toUpperCase() + dtxt.slice(1) + '.';
     var score = clamp(Math.round(cp - 0.5 * op - 0.3 * wp - pen + (!bad && onRwy && flight.onGround ? 5 : 0)), 0, 100);
     // fecha a conta da missão: bônus de pouso, custo do conserto, e soma na carteira
-    FIELDS.forEach(function (f) { if (f.evalPending) { f.evalPending = false; evaluate(f); } });
+    ACTIVE.forEach(function (f) { if (f.evalPending) { f.evalPending = false; evaluate(f); } });
     var notes = [], earned = Math.round(bank.coins);
     if (!bad && !dl.length && onRwy && flight.onGround && flight.hasFlown) { bank.coins += 300; bank.xp += 5; notes.push('Pouso limpo na pista: +300 moedas e +5 XP'); }
     if (crash) { var lost = Math.round(bank.coins * 0.5); bank.coins -= lost; notes.push('Perda total: ' + lost.toLocaleString('pt-BR') + ' moedas ficaram no prejuízo'); }
@@ -397,7 +395,7 @@
     try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { }
     if (lv1 > lv0) notes.push('Subiu para o nível ' + lv1);
     rwQ.length = 0; show('reward', false); show('msg', false);
-    $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : 'Missão encerrada');
+    $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')); rows = '<tr><td>' + mission.farm + ' · ' + mission.name + '</td><td>' + fmt(cp, 1) + '%</td><td>' + fmt(op, 1) + '%</td></tr>';
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
     $('end-body').innerHTML = '<table><thead><tr><th></th><th>Cobertura</th><th>Sobreposição</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<p>Produto aplicado: <b>' + Math.round(stats.applied) + ' L</b> · perdido fora do alvo ou por deriva: <b>' + Math.round(stats.waste) + ' L</b> · tempo: <b>' + Math.floor(stats.time / 60) + ' min ' + Math.round(stats.time % 60) + ' s</b></p>' +
@@ -406,6 +404,17 @@
       '<p class="sub">Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv1 + '</p>';
     $('end-score').textContent = score;
     $('end').classList.toggle('crash', bad); show('end', true);
+  }
+  function paintMissions() {
+    var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40); box.textContent = '';
+    if (mission.lvl > lv) mission = FIELDS[0];
+    FIELDS.forEach(function (f) {
+      var b = document.createElement('button'), locked = f.lvl > lv; b.type = 'button'; b.className = 'mis' + (f === mission ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', f === mission ? 'true' : 'false');
+      var t = document.createElement('b'); t.textContent = f.farm; var d = document.createElement('span');
+      d.textContent = locked ? 'Libera no nível ' + f.lvl : f.prod + ' · ' + f.name + ' · ' + Math.round(missionHa(f)) + ' ha · ' + (f.wid / SWATH) + ' faixas de ' + f.len + ' m';
+      b.appendChild(t); b.appendChild(d); b.addEventListener('click', function () { mission = f; paintMissions(); resetGame(); }); box.appendChild(b);
+    });
+    $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
   tap('m-tilt', function () {
     initAudio(); $('menu-note').textContent = 'Verificando o sensor…';
@@ -422,7 +431,7 @@
   tap('p-restart', function () { startPlay(); });
   tap('p-end', function () { show('pause', false); finish(null); });
   tap('e-again', function () { initAudio(); startPlay(); });
-  tap('e-menu', function () { show('end', false); resetGame(); state = 'menu'; show('menu', true); });
+  tap('e-menu', function () { show('end', false); paintMissions(); resetGame(); state = 'menu'; show('menu', true); });
   var optBtn = function (id, label, vals, get, set) {
     var el = $(id), paint = function () { el.textContent = label + ': ' + vals[get()]; }; paint();
     el.addEventListener('click', function () { set((get() + 1) % vals.length); paint(); });
@@ -436,7 +445,9 @@
   // ---------- colisões e dano ----------
   var segs = [[[-7.9, -0.3, -0.3], [7.9, -0.3, -0.3]], [[0, 0, -5.2], [0, 0.2, 4.9]], [[0, 0.3, 4.2], [0, 2.1, 4.6]], [[0, -1.9, -1.3], [0, 0, -1.3]]];
   function hitWires() {
-    if (flight.pos.y > 14 || flight.pos.x < 285 || flight.pos.x > 855 || Math.abs(flight.pos.z + 500) > 14) return;
+    if (flight.pos.y > 14) return; var near = false, px = flight.pos.x, pz = flight.pos.z;
+    for (var bi = 0; bi < world.wireBoxes.length; bi++) { var bb = world.wireBoxes[bi]; if (px > bb.x0 && px < bb.x1 && pz > bb.z0 && pz < bb.z1) { near = true; break; } }
+    if (!near) return;
     var dm = flight.dmg;
     for (var s = 0; s < segs.length; s++) {
       if (s === 3 && dm.gear === 2) continue;
@@ -445,7 +456,7 @@
       for (var i = 0; i < world.wires.length; i++) {
         var w = world.wires[i]; if (w.cut || segSegDist2(v1, v2, w.a, w.b) >= 0.2) continue;
         world.cutWire(i); sfx('tear');
-        if (s === 0) { v3.set(1, 0, 0).applyQuaternion(flight.quat); var sd = ((w.a.z - flight.pos.z) * v3.z + (w.a.y - flight.pos.y) * v3.y) > 0 ? 1 : -1; if (flight.tearWing(sd)) { flight.r += sd * 0.6; } }
+        if (s === 0) { v3.set(1, 0, 0).applyQuaternion(flight.quat); var wt = clamp(((px - w.a.x) * (w.b.x - w.a.x) + (pz - w.a.z) * (w.b.z - w.a.z)) / w.a.distanceToSquared(w.b), 0, 1), sd = ((w.a.x + (w.b.x - w.a.x) * wt - px) * v3.x + (w.a.z + (w.b.z - w.a.z) * wt - pz) * v3.z + (w.a.y - flight.pos.y) * v3.y) > 0 ? 1 : -1; if (flight.tearWing(sd)) { flight.r += sd * 0.6; } }
         else if (s === 1) { flight.killEngine(true); }
         else if (s === 2) { if (!dm.tail) { dm.tail = true; flight.events.push('tail'); } }
         else { flight.loseGear(); flight.q -= 0.35; }
@@ -518,7 +529,7 @@
     // aplicação
     if (spraying && flight.hopper > 0) {
       var gs = Math.sqrt(flight.vel.x * flight.vel.x + flight.vel.z * flight.vel.z);
-      var lit = Math.min(flight.hopper, RATE_L_HA * SWATH * Math.max(gs, 20) / 10000 * dt);
+      var lit = Math.min(flight.hopper, mission.rate * SWATH * Math.max(gs, 20) / 10000 * dt);
       flight.hopper -= lit; stats.applied += lit;
       spray.emit(flight, 9);
       var frac = 0;
@@ -531,10 +542,10 @@
     }
     lastX = flight.pos.x; lastZ = flight.pos.z;
     updateGame(dt);
-    FIELDS.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
+    ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
     if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
-    if (!hint.done && FIELDS.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Siga o arco até a pista e pouse.', tier: 2 }); }
+    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Siga o arco até a pista e pouse.', tier: 2 }); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
@@ -604,6 +615,6 @@
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
-  layout(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: FIELDS, stats: stats };
+  layout(); paintMissions(); resetGame(); requestAnimationFrame(frame);
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: ACTIVE, all: FIELDS, get mission() { return mission; }, stats: stats };
 })();

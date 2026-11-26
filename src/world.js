@@ -2,11 +2,14 @@
 function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function col(hex) { return new THREE.Color(hex).convertSRGBToLinear(); }
 
-var SWATH = 24, RATE_L_HA = 30, RWY_HW = 11, RWY_HL = 450, GROUND_HALF = 2048;
+var SWATH = 30, RWY_HW = 11, RWY_HL = 450, GROUND_HALF = 2048;
+// Cada missão é um talhão de uma fazenda. Faixas de 30 m; a largura dá meia volta de balão entre a faixa i e a i + n/2.
 var FIELDS = [
-  { name: 'Talhão 1', cx: -520, cz: -150, len: 520, wid: 192, ux: 0, uz: 1, wx: 1, wz: 0 },
-  { name: 'Talhão 2', cx: 560, cz: -420, len: 400, wid: 144, ux: 1, uz: 0, wx: 0, wz: 1 }
+  { farm: 'Fazenda Três Lagoas', name: 'Talhão 7', prod: 'inseticida', rate: 30, lvl: 1, cx: -800, cz: -350, len: 700, wid: 480, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesW: -1 } },
+  { farm: 'Fazenda Santa Luzia', name: 'Talhão 12', prod: 'fungicida', rate: 30, lvl: 2, cx: 900, cz: -900, len: 900, wid: 480, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresW: -1, treesU: 1 } },
+  { farm: 'Fazenda Boa Esperança', name: 'Talhão 3', prod: 'dessecante', rate: 25, lvl: 3, cx: 1000, cz: 900, len: 1100, wid: 600, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 1, treesU: -1 } }
 ];
+var ACTIVE = [];                                                  // o talhão da missão em curso
 var SUN = new THREE.Vector3(0.52, 0.66, -0.38).normalize();
 
 function canvasTex(w, h, draw, aniso) {
@@ -168,8 +171,8 @@ function buildWorld(scene, aniso) {
     f.nSw = Math.round(f.wid / SWATH);
     var base = decal(fieldQuad(f, 0.03, 0), new THREE.MeshLambertMaterial({ map: rowTex.clone() }), 2);
     base.material.map.needsUpdate = true; base.material.map.repeat.set(f.wid / 2, f.len / 2);
-    var cv = document.createElement('canvas'); cv.width = f.wid; cv.height = f.len;
-    f.ctx = cv.getContext('2d');
+    var cv = document.createElement('canvas'); cv.width = f.wid / 2; cv.height = f.len / 2;                    // 2 m por pixel: leve para atualizar em voo
+    f.ctx = cv.getContext('2d'); f.ctx.scale(0.5, 0.5);
     f.tex = new THREE.CanvasTexture(cv); f.tex.encoding = THREE.sRGBEncoding; f.tex.generateMipmaps = false; f.tex.minFilter = THREE.LinearFilter;
     decal(fieldQuad(f, 0.05, 0), new THREE.MeshBasicMaterial({ map: f.tex, transparent: true, depthWrite: false }), 3);
     f.grid = new Uint8Array(f.wid * f.len); f.ovl = new Uint8Array(f.wid * f.len); f.sw = new Int32Array(f.nSw); f.tier = new Uint8Array(f.nSw); f.touched = new Uint8Array(f.nSw);
@@ -190,13 +193,22 @@ function buildWorld(scene, aniso) {
   var lane = new THREE.Mesh(laneG, new THREE.MeshBasicMaterial({ map: laneTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 }));
   lane.renderOrder = 5; lane.frustumCulled = false; lane.visible = false; scene.add(lane);
   var bcnM = new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.42, depthWrite: false }), bcn = [0, 1].map(function () { var m = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 34, 10, 1, true), bcnM); m.visible = false; m.renderOrder = 6; scene.add(m); return m; });
+  var leadTex = canvasTex(16, 64, function (g, w, h) { g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(255,238,140,0.9)'; g.fillRect(0, 0, w, h * 0.5); }, aniso); leadTex.wrapT = THREE.RepeatWrapping; leadTex.repeat.set(1, 14);
+  var leadMat = new THREE.MeshBasicMaterial({ map: leadTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 });
+  var lead = [0, 1].map(function () { var m = new THREE.Mesh(quadXZ(0, 0, 1, 0, 1, 1, 0, 1, 0.09), leadMat); m.renderOrder = 5; m.frustumCulled = false; m.visible = false; scene.add(m); return m; });
+  var cornM = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }), corn = [0, 1, 2, 3].map(function () { var m = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 46, 10, 1, true), cornM); m.visible = false; m.renderOrder = 6; scene.add(m); return m; });
+  W.markField = function (f) {                                    // quatro marcos altos nos cantos: dá para achar o talhão de longe
+    corn.forEach(function (m, k) { m.visible = !!f; if (f) { var p = [f.cx + f.ux * (k < 2 ? -1 : 1) * f.len / 2 + f.wx * (k % 2 ? 1 : -1) * f.wid / 2, f.cz + f.uz * (k < 2 ? -1 : 1) * f.len / 2 + f.wz * (k % 2 ? 1 : -1) * f.wid / 2]; m.position.set(p[0], 23, p[1]); } });
+  };
   W.setLane = function (f, i) {
-    if (!f) { lane.visible = bcn[0].visible = bcn[1].visible = false; return; }
+    if (!f) { lane.visible = bcn[0].visible = bcn[1].visible = lead[0].visible = lead[1].visible = false; return; }
     var wc = -f.wid / 2 + (i + 0.5) * SWATH, l = f.len / 2, h = SWATH / 2, a = laneG.attributes.position;
     var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, A = P(-l, wc - h), B = P(-l, wc + h), C = P(l, wc + h), D = P(l, wc - h);
     a.setXYZ(0, A[0], 0.09, A[1]); a.setXYZ(1, B[0], 0.09, B[1]); a.setXYZ(2, C[0], 0.09, C[1]); a.setXYZ(3, D[0], 0.09, D[1]); a.needsUpdate = true;
     laneTex.repeat.set(1, f.len / 36); lane.visible = true;
-    [-1, 1].forEach(function (e, k) { var p = P(e * (l + 14), wc); bcn[k].position.set(p[0], 17, p[1]); bcn[k].visible = true; });
+    [-1, 1].forEach(function (e, k) { var p = P(e * (l + 14), wc); bcn[k].position.set(p[0], 17, p[1]); bcn[k].visible = true;
+      var g2 = lead[k].geometry.attributes.position, A2 = P(e * (l + 20), wc - 3), B2 = P(e * (l + 20), wc + 3), C2 = P(e * (l + 440), wc + 3), D2 = P(e * (l + 440), wc - 3);
+      g2.setXYZ(0, A2[0], 0.09, A2[1]); g2.setXYZ(1, B2[0], 0.09, B2[1]); g2.setXYZ(2, C2[0], 0.09, C2[1]); g2.setXYZ(3, D2[0], 0.09, D2[1]); g2.needsUpdate = true; lead[k].visible = true; });
   };
 
   // ---------- árvores ----------
@@ -206,14 +218,23 @@ function buildWorld(scene, aniso) {
     if (inRect(x, z, 0, 160, 300, 460)) return true;                                          // sede
     for (var i = 0; i < FIELDS.length; i++) {
       var f = FIELDS[i], u = (x - f.cx) * f.ux + (z - f.cz) * f.uz, w = (x - f.cx) * f.wx + (z - f.cz) * f.wz;
-      if (Math.abs(u) < f.len / 2 + 520 && Math.abs(w) < f.wid / 2 + 70) return true;         // talhão e entradas/saídas
+      if (Math.abs(u) < f.len / 2 + 680 && Math.abs(w) < f.wid / 2 + 90) return true;         // talhão e área de balão
     }
     return false;
   };
   var tree = function (x, z, h, force) { if (!force && blocked(x, z)) return; T.push({ x: x, z: z, h: h, r: h * (0.30 + R() * 0.12) }); };
   var x, z, i, a, d;
-  for (x = -640; x <= -400; x += 6.5) { tree(x + R() * 2, -428 + R() * 2, 10 + R() * 4, true); tree(x + 3 + R() * 2, -436 + R() * 2, 11 + R() * 4, true); }   // quebra-vento ao norte do talhão 1
-  for (z = -488; z <= -338; z += 6.5) { tree(780 + R() * 2, z + R() * 2, 10 + R() * 4, true); tree(788 + R() * 2, z + 3 + R() * 2, 11 + R() * 5, true); }     // cortina a leste do talhão 2
+  // quebra-ventos e redes elétricas de cada talhão, pela configuração da missão
+  var P2 = function (f, u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, lines = [];
+  var treeRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 6.5); for (var k = 0; k <= n; k++) { var p = P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n); tree(p[0] + R() * 2, p[1] + R() * 2, 10 + R() * 5, true); } };
+  var poleRow = function (f, u0, w0, u1, w1) { var n = Math.round(Math.sqrt(Math.pow(u1 - u0, 2) + Math.pow(w1 - w0, 2)) / 60), pts = []; for (var k = 0; k <= n; k++) pts.push(P2(f, u0 + (u1 - u0) * k / n, w0 + (w1 - w0) * k / n)); lines.push(pts); };
+  FIELDS.forEach(function (f) {
+    var o = f.obs || {}, l = f.len / 2, h = f.wid / 2, e;
+    if (o.treesU) { e = o.treesU; treeRow(f, e * (l + 24), -h - 12, e * (l + 24), h + 12); treeRow(f, e * (l + 32), -h - 9, e * (l + 32), h + 9); }
+    if (o.treesW) { e = o.treesW; treeRow(f, -l, e * (h + 26), l, e * (h + 26)); treeRow(f, -l + 3, e * (h + 34), l - 3, e * (h + 34)); }
+    if (o.wiresW) { e = o.wiresW; poleRow(f, -l - 60, e * (h + 16), l + 60, e * (h + 16)); }
+    if (o.wiresU) { e = o.wiresU; poleRow(f, e * (l + 45), -h - 60, e * (l + 45), h + 60); }
+  });
   [[-1150, -950, 280, 130], [950, 560, 240, 110], [230, -1380, 250, 100], [-900, 900, 300, 120], [1500, -1100, 260, 90]].forEach(function (b) {
     for (i = 0; i < b[3]; i++) { a = R() * 6.283; d = Math.sqrt(R()) * b[2]; tree(b[0] + Math.cos(a) * d, b[1] + Math.sin(a) * d * 0.7, 9 + R() * 8); }
   });
@@ -239,33 +260,40 @@ function buildWorld(scene, aniso) {
   });
   scene.add(crowns); scene.add(trunks); scene.add(shads);
 
-  // ---------- rede elétrica ao norte do talhão 2 ----------
-  var poles = [], WH = 8.5; for (x = 300; x <= 840; x += 60) poles.push([x, -500]);
-  var poleM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, 9.4, 8), flatMat('#6e6a60'), poles.length);
-  var armM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.14, 2.2), flatMat('#57534a'), poles.length);
-  var ballM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 10, 8), flatMat('#ff6a13'), (poles.length - 1) * 2);
-  var lp = [];
-  poles.forEach(function (p, k) {
-    M.makeTranslation(p[0], 4.7, p[1]); poleM.setMatrixAt(k, M); M.makeTranslation(p[0], WH + 0.05, p[1]); armM.setMatrixAt(k, M);
-    T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true });
-    if (k) for (var s = -1; s <= 1; s += 2) {
-      var q = poles[k - 1], zz = p[1] + s * 1.0;
-      W.wires.push({ a: new THREE.Vector3(q[0], WH, zz), b: new THREE.Vector3(p[0], WH, zz) });
-      lp.push(q[0], WH, zz, (q[0] + p[0]) / 2, WH - 0.45, zz, (q[0] + p[0]) / 2, WH - 0.45, zz, p[0], WH, zz);
-      M.makeTranslation((q[0] + p[0]) / 2, WH - 0.45, zz); ballM.setMatrixAt((k - 1) * 2 + (s > 0 ? 1 : 0), M);
-    }
+  // ---------- redes elétricas ----------
+  var WH = 8.5, nP = 0, nS = 0; lines.forEach(function (l) { nP += l.length; nS += (l.length - 1) * 2; });
+  var poleM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, 9.4, 8), flatMat('#6e6a60'), Math.max(1, nP));
+  var armM = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.14, 2.2), flatMat('#57534a'), Math.max(1, nP));
+  var ballM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 10, 8), flatMat('#ff6a13'), Math.max(1, nS));
+  var lp = [], pk = 0; W.wireBoxes = [];
+  lines.forEach(function (pts) {
+    var dx = pts[1][0] - pts[0][0], dz = pts[1][1] - pts[0][1], dl = Math.sqrt(dx * dx + dz * dz), ox = -dz / dl, oz = dx / dl, ang = Math.atan2(ox, oz);
+    var bx = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 };
+    pts.forEach(function (p, k) {
+      M.makeTranslation(p[0], 4.7, p[1]); poleM.setMatrixAt(pk, M); M.makeRotationY(ang); M.setPosition(p[0], WH + 0.05, p[1]); armM.setMatrixAt(pk, M); pk++;
+      T.push({ x: p[0], z: p[1], h: 9.4, r: 0.5, pole: true });
+      bx.x0 = Math.min(bx.x0, p[0] - 14); bx.x1 = Math.max(bx.x1, p[0] + 14); bx.z0 = Math.min(bx.z0, p[1] - 14); bx.z1 = Math.max(bx.z1, p[1] + 14);
+      if (k) for (var s = -1; s <= 1; s += 2) {
+        var q = pts[k - 1], ax = q[0] + ox * s, az = q[1] + oz * s, cx = p[0] + ox * s, cz = p[1] + oz * s, mx = (ax + cx) / 2, mz = (az + cz) / 2;
+        ballM.setMatrixAt(W.wires.length, M.makeTranslation(mx, WH - 0.45, mz));
+        W.wires.push({ a: new THREE.Vector3(ax, WH, az), b: new THREE.Vector3(cx, WH, cz) });
+        lp.push(ax, WH, az, mx, WH - 0.45, mz, mx, WH - 0.45, mz, cx, WH, cz);
+      }
+    });
+    W.wireBoxes.push(bx);
   });
-  var lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
+  poleM.count = armM.count = nP; ballM.count = nS;
+  var lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(lp.length ? lp : [0, 0, 0, 0, 0, 0], 3));
   scene.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x1b1b1b })));
   var lp0 = lp.slice();
   W.cutWire = function (i) {                                   // cabo rompido cai no chão
     var w = W.wires[i], a = lg.attributes.position; if (w.cut) return; w.cut = true;
     a.setY(i * 4 + 1, 0.15); a.setY(i * 4 + 2, 0.15); a.needsUpdate = true;
-    M.makeTranslation((w.a.x + w.b.x) / 2, 0.32, w.a.z); ballM.setMatrixAt(i, M); ballM.instanceMatrix.needsUpdate = true;
+    M.makeTranslation((w.a.x + w.b.x) / 2, 0.32, (w.a.z + w.b.z) / 2); ballM.setMatrixAt(i, M); ballM.instanceMatrix.needsUpdate = true;
   };
   W.resetWires = function () {
-    var a = lg.attributes.position; a.array.set(lp0); a.needsUpdate = true;
-    W.wires.forEach(function (w, i) { w.cut = false; M.makeTranslation((w.a.x + w.b.x) / 2, WH - 0.45, w.a.z); ballM.setMatrixAt(i, M); });
+    var a = lg.attributes.position; if (lp0.length) { a.array.set(lp0); a.needsUpdate = true; }
+    W.wires.forEach(function (w, i) { w.cut = false; M.makeTranslation((w.a.x + w.b.x) / 2, WH - 0.45, (w.a.z + w.b.z) / 2); ballM.setMatrixAt(i, M); });
     ballM.instanceMatrix.needsUpdate = true;
   };
   scene.add(poleM); scene.add(armM); scene.add(ballM);
@@ -477,12 +505,13 @@ function makePuffs(scene, N, o) {
 }
 
 // ===================== cobertura =====================
-function resetFields() {
+function resetFields(active) {
+  ACTIVE.length = 0; if (active) ACTIVE.push(active);
   FIELDS.forEach(function (f) {
     f.grid.fill(0); f.ovl.fill(0); f.sw.fill(0); f.tier.fill(0); f.touched.fill(0); f.cov = 0; f.over = 0; f.pass = 0; f.lastHit = -99; f.fresh = 0; f.evalPending = false; f.done = false;
-    var g = f.ctx; g.clearRect(0, 0, f.wid, f.len);
-    g.fillStyle = 'rgba(255,255,255,0.20)'; for (var k = 1; k < f.nSw; k++) g.fillRect(k * SWATH - 0.5, 0, 1, f.len);      // divisas das faixas
-    g.strokeStyle = 'rgba(255,236,120,0.95)'; g.lineWidth = 2.5; g.strokeRect(1.5, 1.5, f.wid - 3, f.len - 3);            // contorno do talhão a aplicar
+    var g = f.ctx; g.clearRect(0, 0, f.wid, f.len); if (f !== active) { f.tex.needsUpdate = true; f.dirty = false; return; }
+    g.fillStyle = 'rgba(255,255,255,0.20)'; for (var k = 1; k < f.nSw; k++) g.fillRect(k * SWATH - 1, 0, 2, f.len);      // divisas das faixas
+    g.strokeStyle = 'rgba(255,236,120,0.95)'; g.lineWidth = 4; g.strokeRect(2, 2, f.wid - 4, f.len - 4);            // contorno do talhão a aplicar
     f.tex.needsUpdate = true; f.dirty = false;
   });
 }
@@ -493,8 +522,8 @@ function applySwath(x0, z0, x1, z1, rx, rz, now) {
     var cx = x0 + (x1 - x0) * s / steps, cz = z0 + (z1 - z0) * s / steps;
     for (var k = -SWATH / 2 + 0.25; k < SWATH / 2; k += 0.5) {
       var x = cx + rx * k, z = cz + rz * k; total++;
-      for (var i = 0; i < FIELDS.length; i++) {
-        var f = FIELDS[i], u = (x - f.cx) * f.ux + (z - f.cz) * f.uz + f.len / 2, w = (x - f.cx) * f.wx + (z - f.cz) * f.wz + f.wid / 2;
+      for (var i = 0; i < ACTIVE.length; i++) {
+        var f = ACTIVE[i], u = (x - f.cx) * f.ux + (z - f.cz) * f.uz + f.len / 2, w = (x - f.cx) * f.wx + (z - f.cz) * f.wz + f.wid / 2;
         if (u < 0 || w < 0 || u >= f.len || w >= f.wid) continue;
         inside++;
         if (now - f.lastHit > 2.5) f.pass = f.pass % 250 + 1;
