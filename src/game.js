@@ -241,16 +241,96 @@
       : { left: false, ppu: 0.5, minor: 20, major: 100, label: 'FT AGL', text: Math.round(ft / 10) * 10, bands: [[5, 23, '#7be36a']] });   // verde: altura de aplicação
   }
 
+  // ---------- moedas, XP e orientação ----------
+  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0 };
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; } } catch (e) { }
+  var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
+  var TIER = [null, { q: 0.72, c: 30, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 50, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 100, xp: 5, t: 'Faixa perfeita' }];
+  var level = function () { return 1 + Math.floor((wallet.xp + bank.xp) / 40); };
+  function award(c, xp, label, tier) { bank.coins += c; bank.xp += xp; rwQ.push({ c: c, xp: xp, t: label, tier: tier || 1 }); }
+  function locUW(f) { var px = flight.pos.x - f.cx, pz = flight.pos.z - f.cz; return { u: px * f.ux + pz * f.uz, w: px * f.wx + pz * f.wz }; }
+  function swQ(f, i) { return clamp(f.sw[i] / (SWATH * f.len), 0, 1); }
+  function evaluate(f) {                                           // fim de uma passagem: paga o bônus das faixas que subiram de categoria
+    for (var i = 0; i < f.nSw; i++) {
+      var q = swQ(f, i), t = q >= TIER[3].q ? 3 : (q >= TIER[2].q ? 2 : (q >= TIER[1].q ? 1 : 0));
+      if (t > f.tier[i]) { var o = f.tier[i]; award(TIER[t].c - (o ? TIER[o].c : 0), TIER[t].xp - (o ? TIER[o].xp : 0), TIER[t].t + ' · ' + Math.round(q * 100) + '%', t); f.tier[i] = t; }
+      else if (f.touched[i] && t === 0 && q > 0.15) say('Faixa ' + (i + 1) + ' incompleta: ' + Math.round(q * 100) + '%. Faltou cobrir para ganhar o bônus.', 4);
+      f.touched[i] = 0;
+    }
+    if (!f.done) { for (i = 0; i < f.nSw; i++) if (!f.tier[i]) return;
+      f.done = true; var cv = f.cov / f.grid.length;
+      if (cv >= 0.95) award(1000, 20, f.name + ' concluído com excelência', 3); else if (cv >= 0.85) award(600, 12, f.name + ' concluído', 2); else award(300, 6, f.name + ' concluído', 1);
+    }
+  }
+  function pickTarget() {
+    var best = null, bc = 1e9;
+    FIELDS.forEach(function (f) {
+      if (f.done) return; var l = locUW(f), dF = Math.max(Math.abs(l.w) - f.wid / 2, 0) + Math.max(Math.abs(l.u) - f.len / 2, 0);
+      for (var i = 0; i < f.nSw; i++) { if (f.tier[i]) continue; var wc = -f.wid / 2 + (i + 0.5) * SWATH, c = Math.abs(l.w - wc) + dF * 1.5 + (curF && curF !== f && !curF.done ? 800 : 0); if (c < bc) { bc = c; best = { f: f, i: i }; } }
+    });
+    return best;
+  }
+  function updateGame(dt) {
+    var i, f;
+    for (i = 0; i < FIELDS.length; i++) {
+      f = FIELDS[i];
+      if (f.fresh) { var gain = 5 * f.fresh / SWATH; bank.coins += gain; bank.tick += gain; f.fresh = 0; f.evalPending = true; if (bank.tick >= 120) { bank.tick = 0; sfx('coin'); } }
+      if (f.evalPending && simT - f.lastHit > 1.0) { f.evalPending = false; evaluate(f); }
+    }
+    // faixa-alvo: a que está sendo aplicada; fora dela, a pendente mais próxima
+    var pass = null;
+    if (spraying && !flight.onGround) for (i = 0; i < FIELDS.length; i++) { f = FIELDS[i]; var l = locUW(f); if (Math.abs(l.u) < f.len / 2 + 10 && Math.abs(l.w) < f.wid / 2) { pass = { f: f, i: clamp(Math.floor((l.w + f.wid / 2) / SWATH), 0, f.nSw - 1) }; curF = f; lastSw = pass.i; } }
+    tgtT -= dt;
+    if (pass) { if (!tgt || tgt.f !== pass.f || tgt.i !== pass.i) { tgt = pass; world.setLane(tgt.f, tgt.i); } tgtT = 1.2; }
+    else if (tgtT <= 0) { tgtT = 0.4; var n = pickTarget(); if ((n && (!tgt || n.f !== tgt.f || n.i !== tgt.i)) || (!n && tgt)) { tgt = n; world.setLane(n && n.f, n && n.i); } }
+    // recompensas na tela, uma por vez
+    if (rwT > 0) { rwT -= dt; if (rwT <= 0) show('reward', false); }
+    if (rwT <= 0 && rwQ.length) { var r = rwQ.shift(); $('rw-c').textContent = r.c ? '+' + r.c : ''; $('reward').classList.toggle('plain', !r.c); $('rw-t').textContent = r.t; $('rw-x').textContent = r.xp ? '+' + r.xp + ' XP' : ''; show('msg', false); msgT = 0; show('reward', true); rwT = 1.9; sfx('reward', r.tier); }
+    if (Math.abs(bank.coins - bank.shown) > 0.5) { bank.shown += (bank.coins - bank.shown) * Math.min(1, dt * 7); if (Math.abs(bank.coins - bank.shown) < 1) bank.shown = bank.coins; $('h-coin').textContent = Math.floor(bank.shown).toLocaleString('pt-BR'); }
+    if (bank.xp !== bank.xpShown) { bank.xpShown = bank.xp; $('h-xp').textContent = 'XP ' + bank.xp + ' · NV ' + level(); }
+    updateFD(dt);
+  }
+  // arco de direção: a seta mostra para onde virar para chegar à cabeceira da faixa-alvo (ou à pista, no fim)
+  var fd = { a: 0, px: 999, txtT: 0, cls: '', vis: false };
+  function updateFD(dt) {
+    var on = !flight.onGround && !flight.crashed;
+    if (on !== fd.vis) { fd.vis = on; show('fd', on); } if (!on) return;
+    var fx = Math.sin(flight.psi), fz = -Math.cos(flight.psi), ax, az, dist, label;
+    if (tgt) {
+      var f = tgt.f, l = locUW(f), wc = -f.wid / 2 + (tgt.i + 0.5) * SWATH, hx = fx * f.ux + fz * f.uz, au, E;
+      if (Math.abs(l.u) < f.len / 2 + 20 && Math.abs(l.w - wc) < SWATH * 0.9 && Math.abs(hx) > 0.8) { au = l.u + (hx > 0 ? 170 : -170); dist = f.len / 2 - l.u * (hx > 0 ? 1 : -1); label = 'FAIXA ' + (tgt.i + 1) + ' · FIM EM '; }
+      else {
+        E = Math.abs(l.u) > f.len / 2 ? (l.u > 0 ? 1 : -1) : (hx >= 0 ? 1 : -1);
+        var aligned = Math.abs(l.w - wc) < 45 && hx * E < -0.5 && Math.abs(l.u) > f.len / 2;
+        au = E * (f.len / 2 + (aligned ? clamp(Math.abs(l.u) - f.len / 2 - 80, 0, 220) : 220));
+        var du = E * f.len / 2 - l.u, dw = wc - l.w; dist = Math.sqrt(du * du + dw * dw); label = 'FAIXA ' + (tgt.i + 1) + ' · ';
+      }
+      ax = f.cx + f.ux * au + f.wx * wc; az = f.cz + f.uz * au + f.wz * wc;
+    } else {
+      var Ez = flight.pos.z >= 0 ? 1 : -1, al = Math.abs(flight.pos.x) < 50 && fz * Ez < -0.5 && Math.abs(flight.pos.z) > RWY_HL;
+      ax = 0; az = Ez * (RWY_HL + (al ? clamp(Math.abs(flight.pos.z) - RWY_HL - 150, -200, 500) : 500)); dist = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(Ez * RWY_HL - flight.pos.z, 2)); label = 'PISTA · ';
+    }
+    var dx = ax - flight.pos.x, dz = az - flight.pos.z, rel = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
+    var a = clamp(rel, -Math.PI / 2, Math.PI / 2) * (50 / 90);
+    fd.a += (a - fd.a) * Math.min(1, dt * 8);
+    var px = Math.round(fd.a * 400);
+    if (px !== fd.px) { fd.px = px; $('fd-m').setAttribute('transform', 'translate(' + (120 * Math.sin(fd.a)).toFixed(1) + ',' + (120 - 120 * Math.cos(fd.a)).toFixed(1) + ') rotate(' + (fd.a / D2R).toFixed(1) + ')'); }
+    var cls = Math.abs(rel) > Math.PI / 2 ? 'behind' : (Math.abs(rel) < 4 * D2R ? 'on' : '');
+    if (cls !== fd.cls) { fd.cls = cls; $('fd').setAttribute('class', cls); }
+    fd.txtT -= dt; if (fd.txtT <= 0) { fd.txtT = 0.25; $('fd-t').textContent = label + (dist >= 1000 ? fmt(dist / 1000, 1) + ' km' : Math.max(0, Math.round(dist / 10) * 10) + ' m'); }
+  }
+
   function updateHud(dt) {
     drawTapes();
     var tick = (hudT -= dt) <= 0; if (tick) hudT = 0.1;
     var g = guidance(), on = -1, cls = '';
+    if (tgt) { var tl = locUW(tgt.f); g = { f: tgt.f, u: tl.u, w: tl.w }; }
     if (g && !flight.onGround) {
-      var f = g.f, i = clamp(Math.floor((g.w + f.wid / 2) / SWATH), 0, f.nSw - 1), wc = -f.wid / 2 + (i + 0.5) * SWATH;
+      var f = g.f, i = tgt ? tgt.i : clamp(Math.floor((g.w + f.wid / 2) / SWATH), 0, f.nSw - 1), wc = -f.wid / 2 + (i + 0.5) * SWATH;
       v1.set(1, 0, 0).applyQuaternion(flight.quat);
       var side = (wc - g.w) * (f.wx * v1.x + f.wz * v1.z);
       on = clamp(Math.round((LB - 1) / 2 + side / 1.5), 0, LB - 1);
-      var done = f.sw[i] > SWATH * f.len * 0.8; cls = done ? 'done' : (Math.abs(side) < 2 ? 'good' : 'off');
+      var done = f.tier[i] > 0; cls = done ? 'done' : (Math.abs(side) < 2 ? 'good' : 'off');
       if (tick) $('lb-txt').textContent = f.name + ' · faixa ' + (i + 1) + '/' + f.nSw + (done ? ' feita' : '') + ' · ' + fmt(Math.abs(side), 1) + ' m';
     } else if (tick) $('lb-txt').textContent = flight.onGround ? 'Guia de faixa' : 'Fora da área';
     if (on !== ledOn || $('lb-leds').className !== cls) { if (ledOn >= 0) leds[ledOn].classList.remove('lit'); if (on >= 0) leds[on].classList.add('lit'); ledOn = on; $('lb-leds').className = cls; }
@@ -278,7 +358,7 @@
     flight.reset(START); resetFields(); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
-    wasGround = true; stats.applied = stats.waste = stats.time = 0; simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
+    wasGround = true; stats.applied = stats.waste = stats.time = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
@@ -307,10 +387,23 @@
     pen = crash ? 40 : Math.min(40, pen); var bad = !!crash || dm.gear === 2 || dm.wingL || dm.wingR || dm.engine;
     var dtxt = dl.length ? dl.join(', ') : ''; if (dtxt) dtxt = dtxt.charAt(0).toUpperCase() + dtxt.slice(1) + '.';
     var score = clamp(Math.round(cp - 0.5 * op - 0.3 * wp - pen + (!bad && onRwy && flight.onGround ? 5 : 0)), 0, 100);
+    // fecha a conta da missão: bônus de pouso, custo do conserto, e soma na carteira
+    FIELDS.forEach(function (f) { if (f.evalPending) { f.evalPending = false; evaluate(f); } });
+    var notes = [], earned = Math.round(bank.coins);
+    if (!bad && !dl.length && onRwy && flight.onGround && flight.hasFlown) { bank.coins += 300; bank.xp += 5; notes.push('Pouso limpo na pista: +300 moedas e +5 XP'); }
+    if (crash) { var lost = Math.round(bank.coins * 0.5); bank.coins -= lost; notes.push('Perda total: ' + lost.toLocaleString('pt-BR') + ' moedas ficaram no prejuízo'); }
+    else if (dl.length) { var fix = Math.min(Math.round(bank.coins), pen * 15); bank.coins -= fix; notes.push('Conserto: -' + fix.toLocaleString('pt-BR') + ' moedas'); }
+    var mc = Math.round(bank.coins), lv0 = 1 + Math.floor(wallet.xp / 40); wallet.coins += mc; wallet.xp += bank.xp; var lv1 = 1 + Math.floor(wallet.xp / 40);
+    try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { }
+    if (lv1 > lv0) notes.push('Subiu para o nível ' + lv1);
+    rwQ.length = 0; show('reward', false); show('msg', false);
     $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : 'Missão encerrada');
     $('end-sub').textContent = crash ? crash + '.' : ((!flight.onGround ? 'Encerrada em voo.' : (bad ? 'O avião parou e você saiu andando.' : (onRwy ? 'Pouso na pista.' : 'Pouso fora da pista.'))) + (dtxt ? ' ' + dtxt : ''));
     $('end-body').innerHTML = '<table><thead><tr><th></th><th>Cobertura</th><th>Sobreposição</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<p>Produto aplicado: <b>' + Math.round(stats.applied) + ' L</b> · perdido fora do alvo ou por deriva: <b>' + Math.round(stats.waste) + ' L</b> · tempo: <b>' + Math.floor(stats.time / 60) + ' min ' + Math.round(stats.time % 60) + ' s</b></p>';
+      '<p>Produto aplicado: <b>' + Math.round(stats.applied) + ' L</b> · perdido fora do alvo ou por deriva: <b>' + Math.round(stats.waste) + ' L</b> · tempo: <b>' + Math.floor(stats.time / 60) + ' min ' + Math.round(stats.time % 60) + ' s</b></p>' +
+      '<p class="money"><i class="coin"></i><b>' + mc.toLocaleString('pt-BR') + ' moedas</b><span>e <b>' + bank.xp + ' XP</b> nesta missão.</span></p>' +
+      (notes.length ? '<p class="sub">' + notes.join(' · ') + '.</p>' : '') +
+      '<p class="sub">Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv1 + '</p>';
     $('end-score').textContent = score;
     $('end').classList.toggle('crash', bad); show('end', true);
   }
@@ -402,7 +495,7 @@
     else if (ev === 'wingL' || ev === 'wingR') { sfx('tear'); detachWing(ev === 'wingL' ? -1 : 1); say(ev === 'wingL' ? 'Asa esquerda arrancada.' : 'Asa direita arrancada.', 5); }
     else if (ev === 'engine') { sfx('bang'); if (reverse > 0 || throttle > 0) { /* manete continua onde está; o motor não responde */ } say(dm.fire ? 'Motor destruído e em chamas.' : 'Hélice tocou o solo: motor parado.', 5); }
     else if (ev === 'tail') { sfx('tear'); say('Cauda atingida: sem leme.', 5); }
-    else if (ev === 'destroyed') {                               // perda total: o avião se parte
+    else if (ev === 'destroyed') { fd.vis = false; show('fd', false); world.setLane(null);                               // perda total: o avião se parte
       var sp = flight.impact.length(), both = sp > 30 || /árvores|estrutura|construção|nariz|violento|Capotou|capotou/.test(flight.crashed || '');
       if (both || flight.phi < -0.1) { dm.wingL = true; detachWing(-1); } if (both || flight.phi > 0.1) { dm.wingR = true; detachWing(1); }
       plane.gearParts.forEach(function (m) { m.visible = false; });
@@ -437,10 +530,11 @@
       if (flight.hopper <= 0) { toggleSpray(false); if (!hint.empty) { hint.empty = true; say('Hopper vazio. Volte para a pista e pouse.', 6); } }
     }
     lastX = flight.pos.x; lastZ = flight.pos.z;
+    updateGame(dt);
     FIELDS.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
     if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
-    if (!hint.done && FIELDS.every(function (f) { return f.cov / f.grid.length > 0.95; })) { hint.done = true; say('Talhões concluídos. Volte para a pista e pouse.', 7); }
+    if (!hint.done && FIELDS.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Siga o arco até a pista e pouse.', tier: 2 }); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
@@ -485,7 +579,7 @@
       camDY += ((4.6 - flight.gamma * 5) - camDY) * (camSnap ? 1 : 1 - Math.exp(-dt * 3)); camRoll += (flight.phi - camRoll) * (camSnap ? 1 : 1 - Math.exp(-dt * 6));
       camPos.copy(flight.pos).addScaledVector(camHead, -17.5); camPos.y += camDY; if (camPos.y < 1.4) camPos.y = 1.4;
       camera.position.copy(camPos); camera.up.set(0, 1, 0);
-      v3.copy(flight.pos).addScaledVector(camHead, 14); v3.y += 1.2; camera.lookAt(v3); camera.rotateZ(-camRoll * 0.28);
+      v3.copy(flight.pos).addScaledVector(camHead, 14); v3.y += 2.8; camera.lookAt(v3); camera.rotateZ(-camRoll * 0.28);
       camSnap = false;
     }
     var fov = (camMode === 1 ? 72 : 60) + Math.min(10, flight.V * 0.1); if (Math.abs(fov - camera.fov) > 0.2) { camera.fov = fov; camera.updateProjectionMatrix(); }
@@ -511,5 +605,5 @@
     requestAnimationFrame(frame);
   }
   layout(); resetGame(); requestAnimationFrame(frame);
-  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: FIELDS, stats: stats };
+  window.__game = { tilt: tilt, ctl: ctl, get mode() { return mode; }, flight: flight, get state() { return state; }, setThrottle: setThrottle, setLever: setLever, debris: debris, bank: bank, get tgt() { return tgt; }, wallet: wallet, get quality() { return quality; }, rud: rud, setFlap: setFlap, opt: opt, fields: FIELDS, stats: stats };
 })();

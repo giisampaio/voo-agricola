@@ -91,6 +91,8 @@ function makeAudio(c) {
       else if (name === 'crunch') { tone('sawtooth', 95, 42, 0.22, 0.4); burst(white, 'bandpass', 850, 1.4, 0.55, 0.5, 0.5); burst(brown, 'lowpass', 500, 0.7, 0.9, 0.4, 1); }
       else if (name === 'tear') { tone('square', 320, 60, 0.10, 0.55); burst(white, 'bandpass', 1700, 1.0, 0.5, 0.7, 0.7); burst(brown, 'lowpass', 600, 0.7, 0.8, 0.35, 1); }
       else if (name === 'bang') { tone('sine', 150, 34, 0.9, 0.45); burst(brown, 'lowpass', 800, 0.7, 1.3, 0.6, 1); burst(white, 'bandpass', 2200, 0.8, 0.25, 0.3, 1); }
+      else if (name === 'coin') { tone('triangle', 1250, 1700, 0.045, 0.07); }
+      else if (name === 'reward') { tone('triangle', 880, 884, 0.16, 0.16); setTimeout(function () { tone('triangle', v >= 3 ? 1760 : 1320, v >= 3 ? 1765 : 1324, 0.18, 0.32); }, 110); }
       else if (name === 'lift') { burst(brown, 'lowpass', 300, 0.7, 0.25, 0.4, 1); }
     }
   };

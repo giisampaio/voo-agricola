@@ -172,7 +172,7 @@ function buildWorld(scene, aniso) {
     f.ctx = cv.getContext('2d');
     f.tex = new THREE.CanvasTexture(cv); f.tex.encoding = THREE.sRGBEncoding; f.tex.generateMipmaps = false; f.tex.minFilter = THREE.LinearFilter;
     decal(fieldQuad(f, 0.05, 0), new THREE.MeshBasicMaterial({ map: f.tex, transparent: true, depthWrite: false }), 3);
-    f.grid = new Uint8Array(f.wid * f.len); f.ovl = new Uint8Array(f.wid * f.len); f.sw = new Int32Array(f.nSw);
+    f.grid = new Uint8Array(f.wid * f.len); f.ovl = new Uint8Array(f.wid * f.len); f.sw = new Int32Array(f.nSw); f.tier = new Uint8Array(f.nSw); f.touched = new Uint8Array(f.nSw);
     for (var i = 0; i < f.nSw; i++) for (var e = -1; e <= 1; e += 2) {
       var u = e * (f.len / 2 + 6), w = -f.wid / 2 + (i + 0.5) * SWATH, x = f.cx + f.ux * u + f.wx * w, z = f.cz + f.uz * u + f.wz * w;
       M.makeTranslation(x, 0.9, z); stakes.setMatrixAt(si, M);
@@ -180,6 +180,24 @@ function buildWorld(scene, aniso) {
     }
   });
   scene.add(stakes); scene.add(flags);
+  // faixa-alvo: banda clara no chão e dois balizadores altos nas cabeceiras da faixa
+  var laneTex = canvasTex(64, 128, function (g, w, h) {
+    g.clearRect(0, 0, w, h); g.fillStyle = 'rgba(255,230,100,0.13)'; g.fillRect(0, 0, w, h);
+    g.fillStyle = 'rgba(255,238,140,0.85)'; g.fillRect(0, 0, 5, h); g.fillRect(w - 5, 0, 5, h);
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.fillRect(w / 2 - 2, 0, 4, h * 0.5);
+  }, aniso); laneTex.wrapT = THREE.RepeatWrapping;
+  var laneG = quadXZ(0, 0, 1, 0, 1, 1, 0, 1, 0.09);
+  var lane = new THREE.Mesh(laneG, new THREE.MeshBasicMaterial({ map: laneTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -10 }));
+  lane.renderOrder = 5; lane.frustumCulled = false; lane.visible = false; scene.add(lane);
+  var bcnM = new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.42, depthWrite: false }), bcn = [0, 1].map(function () { var m = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 34, 10, 1, true), bcnM); m.visible = false; m.renderOrder = 6; scene.add(m); return m; });
+  W.setLane = function (f, i) {
+    if (!f) { lane.visible = bcn[0].visible = bcn[1].visible = false; return; }
+    var wc = -f.wid / 2 + (i + 0.5) * SWATH, l = f.len / 2, h = SWATH / 2, a = laneG.attributes.position;
+    var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, A = P(-l, wc - h), B = P(-l, wc + h), C = P(l, wc + h), D = P(l, wc - h);
+    a.setXYZ(0, A[0], 0.09, A[1]); a.setXYZ(1, B[0], 0.09, B[1]); a.setXYZ(2, C[0], 0.09, C[1]); a.setXYZ(3, D[0], 0.09, D[1]); a.needsUpdate = true;
+    laneTex.repeat.set(1, f.len / 36); lane.visible = true;
+    [-1, 1].forEach(function (e, k) { var p = P(e * (l + 14), wc); bcn[k].position.set(p[0], 17, p[1]); bcn[k].visible = true; });
+  };
 
   // ---------- árvores ----------
   var T = W.trees;
@@ -460,7 +478,13 @@ function makePuffs(scene, N, o) {
 
 // ===================== cobertura =====================
 function resetFields() {
-  FIELDS.forEach(function (f) { f.grid.fill(0); f.ovl.fill(0); f.sw.fill(0); f.cov = 0; f.over = 0; f.pass = 0; f.lastHit = -99; f.ctx.clearRect(0, 0, f.wid, f.len); f.tex.needsUpdate = true; f.dirty = false; });
+  FIELDS.forEach(function (f) {
+    f.grid.fill(0); f.ovl.fill(0); f.sw.fill(0); f.tier.fill(0); f.touched.fill(0); f.cov = 0; f.over = 0; f.pass = 0; f.lastHit = -99; f.fresh = 0; f.evalPending = false; f.done = false;
+    var g = f.ctx; g.clearRect(0, 0, f.wid, f.len);
+    g.fillStyle = 'rgba(255,255,255,0.20)'; for (var k = 1; k < f.nSw; k++) g.fillRect(k * SWATH - 0.5, 0, 1, f.len);      // divisas das faixas
+    g.strokeStyle = 'rgba(255,236,120,0.95)'; g.lineWidth = 2.5; g.strokeRect(1.5, 1.5, f.wid - 3, f.len - 3);            // contorno do talhão a aplicar
+    f.tex.needsUpdate = true; f.dirty = false;
+  });
 }
 // pinta a faixa entre duas posições do avião; devolve a fração das amostras que caiu dentro de um talhão
 function applySwath(x0, z0, x1, z1, rx, rz, now) {
@@ -477,8 +501,8 @@ function applySwath(x0, z0, x1, z1, rx, rz, now) {
         f.lastHit = now;
         var ui = u | 0, wi = w | 0, id = ui * f.wid + wi;
         if (f.grid[id] === 0) {
-          f.grid[id] = f.pass; f.cov++; f.sw[Math.min(f.nSw - 1, (w / SWATH) | 0)]++;
-          f.ctx.fillStyle = 'rgba(16,44,30,0.46)'; f.ctx.fillRect(wi, f.len - 1 - ui, 1, 1); f.dirty = true;
+          var si = Math.min(f.nSw - 1, (w / SWATH) | 0); f.grid[id] = f.pass; f.cov++; f.sw[si]++; f.touched[si] = 1; f.fresh++;
+          f.ctx.fillStyle = 'rgba(6,46,40,0.60)'; f.ctx.fillRect(wi, f.len - 1 - ui, 1, 1); f.dirty = true;
         } else if (f.grid[id] !== f.pass && !f.ovl[id]) {
           f.ovl[id] = 1; f.over++;
           f.ctx.fillStyle = 'rgba(70,20,90,0.35)'; f.ctx.fillRect(wi, f.len - 1 - ui, 1, 1); f.dirty = true;
