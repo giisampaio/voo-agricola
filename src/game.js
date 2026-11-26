@@ -334,7 +334,8 @@
     var wg = plane.wings[side < 0 ? 0 : 1]; if (!wg.visible) return;
     plane.group.updateMatrixWorld(true);
     var o = wg.clone(); wg.getWorldPosition(o.position); wg.getWorldQuaternion(o.quaternion); scene.add(o); wg.visible = false;
-    debris.push({ o: o, v: flight.vel.clone().multiplyScalar(0.75).add(v4.set(0, 3, 0)), w: new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3, side * (2 + Math.random() * 3)), rest: false });
+    var bv = flight.crashed ? flight.impact.clone().multiplyScalar(0.45).add(v4.set((Math.random() - 0.5) * 8 + side * 5, 0, (Math.random() - 0.5) * 8)) : flight.vel.clone().multiplyScalar(0.75);
+    debris.push({ o: o, v: bv.add(v4.set(0, 3 + Math.random() * 3, 0)), w: new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3, side * (2 + Math.random() * 3)), rest: false });
   }
   function boom(n) {
     for (var i = 0; i < n; i++) {
@@ -353,7 +354,12 @@
     else if (ev === 'wingL' || ev === 'wingR') { sfx('tear'); detachWing(ev === 'wingL' ? -1 : 1); say(ev === 'wingL' ? 'Asa esquerda arrancada.' : 'Asa direita arrancada.', 5); }
     else if (ev === 'engine') { sfx('bang'); if (reverse > 0 || throttle > 0) { /* manete continua onde está; o motor não responde */ } say(dm.fire ? 'Motor destruído e em chamas.' : 'Hélice tocou o solo: motor parado.', 5); }
     else if (ev === 'tail') { sfx('tear'); say('Cauda atingida: sem leme.', 5); }
-    else if (ev === 'destroyed') { sfx('crash'); toggleSpray(false); boom(110); }
+    else if (ev === 'destroyed') {                               // perda total: o avião se parte
+      var sp = flight.impact.length(), both = sp > 30 || /árvores|estrutura|construção|nariz|violento|Capotou|capotou/.test(flight.crashed || '');
+      if (both || flight.phi < -0.1) { dm.wingL = true; detachWing(-1); } if (both || flight.phi > 0.1) { dm.wingR = true; detachWing(1); }
+      plane.gearParts.forEach(function (m) { m.visible = false; });
+      sfx('crash'); toggleSpray(false); boom(110);
+    }
   }
 
   // ---------- simulação por quadro ----------

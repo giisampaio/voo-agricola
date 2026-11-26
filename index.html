@@ -277,7 +277,7 @@ function Flight() {
 }
 
 Flight.prototype.reset = function (o) {
-  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0;
+  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0; this.impact = new THREE.Vector3();
   this.psi = o.psi || 0; this.theta = AC.thetaGround; this.phi = 0;
   this.onGround = true; this.vf = 0; this.p = 0; this.q = 0; this.r = 0;
   this.pow = 0; this.rev = 0; this.flap = o.flap || 0; this.flapPos = this.flap; this.hopper = o.hopper || 0;
@@ -438,7 +438,7 @@ Flight.prototype._air = function (dt, c, wind) {
 Flight.prototype._bounce = function (sink, e) { this.pos.y += -this.agl + 0.03; this.vel.y = Math.max(sink * e, 0.6); this.agl = 0.03; };
 Flight.prototype.destroy = function (why) {
   if (this.crashed) return;
-  this.crashed = why; this.dmg.fire = true; this.dmg.engine = true;
+  this.crashed = why; this.dmg.fire = true; this.dmg.engine = true; this.impact = this.vel.clone();
   if (this.agl < 0) this.pos.y -= this.agl;
   this.vel.set(0, 0, 0); this.V = 0; this.vf = 0; this.events.push('destroyed');
 };
@@ -461,12 +461,14 @@ Flight.prototype._contact = function (which, sink) {
   var d = this.dmg, sp = this.vel.length();
   var fx = Math.sin(this.psi), fz = -Math.cos(this.psi), side = Math.abs(this.vel.x * fz - this.vel.z * fx);
   this.lastSink = sink;
+  var tipHit = which === 3 || which === 4 || Math.abs(this.phi) > 11 * D2R, ts = which === 3 ? -1 : (which === 4 ? 1 : (this.phi > 0 ? 1 : -1));
+  var fresh = tipHit ? this.tearWing(ts) : false;                  // a asa que toca sai primeiro, mesmo quando o resto do impacto destrói o avião
   if (this.theta < -16 * D2R) return this.destroy('Bateu de nariz no solo');
   if (Math.abs(this.phi) > 55 * D2R) return this.destroy('Entrou de asa no solo');
   if (sink > 7) return this.destroy('Impacto violento com o solo');
-  if (which === 3 || which === 4 || Math.abs(this.phi) > 11 * D2R) {                // ponta de asa
-    var s = which === 3 ? -1 : (which === 4 ? 1 : (this.phi > 0 ? 1 : -1));
-    if (!this.tearWing(s)) { if (sp > 18) return this.destroy('Capotou'); return this._slide(); }
+  if (tipHit) {                                                                     // ponta de asa
+    var s = ts;
+    if (!fresh) { if (sp > 18) return this.destroy('Capotou'); return this._slide(); }
     if (sp > 45 && sink > 3) return this.destroy('Asa no solo em alta velocidade: capotou');
     this._bounce(sink, 0.3); this.p -= s * 0.9; this.r += s * 0.7; this.vel.x *= 0.9; this.vel.z *= 0.9; return;
   }
@@ -1381,7 +1383,8 @@ function makeAudio(c) {
     var wg = plane.wings[side < 0 ? 0 : 1]; if (!wg.visible) return;
     plane.group.updateMatrixWorld(true);
     var o = wg.clone(); wg.getWorldPosition(o.position); wg.getWorldQuaternion(o.quaternion); scene.add(o); wg.visible = false;
-    debris.push({ o: o, v: flight.vel.clone().multiplyScalar(0.75).add(v4.set(0, 3, 0)), w: new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3, side * (2 + Math.random() * 3)), rest: false });
+    var bv = flight.crashed ? flight.impact.clone().multiplyScalar(0.45).add(v4.set((Math.random() - 0.5) * 8 + side * 5, 0, (Math.random() - 0.5) * 8)) : flight.vel.clone().multiplyScalar(0.75);
+    debris.push({ o: o, v: bv.add(v4.set(0, 3 + Math.random() * 3, 0)), w: new THREE.Vector3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3, side * (2 + Math.random() * 3)), rest: false });
   }
   function boom(n) {
     for (var i = 0; i < n; i++) {
@@ -1400,7 +1403,12 @@ function makeAudio(c) {
     else if (ev === 'wingL' || ev === 'wingR') { sfx('tear'); detachWing(ev === 'wingL' ? -1 : 1); say(ev === 'wingL' ? 'Asa esquerda arrancada.' : 'Asa direita arrancada.', 5); }
     else if (ev === 'engine') { sfx('bang'); if (reverse > 0 || throttle > 0) { /* manete continua onde está; o motor não responde */ } say(dm.fire ? 'Motor destruído e em chamas.' : 'Hélice tocou o solo: motor parado.', 5); }
     else if (ev === 'tail') { sfx('tear'); say('Cauda atingida: sem leme.', 5); }
-    else if (ev === 'destroyed') { sfx('crash'); toggleSpray(false); boom(110); }
+    else if (ev === 'destroyed') {                               // perda total: o avião se parte
+      var sp = flight.impact.length(), both = sp > 30 || /árvores|estrutura|construção|nariz|violento|Capotou|capotou/.test(flight.crashed || '');
+      if (both || flight.phi < -0.1) { dm.wingL = true; detachWing(-1); } if (both || flight.phi > 0.1) { dm.wingR = true; detachWing(1); }
+      plane.gearParts.forEach(function (m) { m.visible = false; });
+      sfx('crash'); toggleSpray(false); boom(110);
+    }
   }
 
   // ---------- simulação por quadro ----------
