@@ -493,14 +493,18 @@
     add('Voo livre', wallet.tut ? 'Hopper cheio e três talhões para aplicar à vontade' : 'Libera ao concluir a Missão 1', true, !wallet.tut);
     $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
+  function goFull() {
+    try { var el = document.documentElement; if (!/Android/i.test(navigator.userAgent) || !el.requestFullscreen || document.fullscreenElement) return;
+      el.requestFullscreen().then(function () { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape'); }).catch(function () { }); } catch (e) { }
+  }
   tap('m-tilt', function () {
-    initAudio(); $('menu-note').textContent = 'Verificando o sensor…';
+    initAudio(); goFull(); $('menu-note').textContent = 'Verificando o sensor…';
     enableTilt().then(function (ok) {
       if (ok) { mode = 'tilt'; $('menu-note').textContent = ''; openCalib(false); }
-      else $('menu-note').textContent = 'O sensor de movimento está bloqueado nesta tela. Ele funciona com o jogo aberto direto no Safari, por um endereço https. Aqui, use o manche na tela.';
+      else $('menu-note').textContent = 'O sensor de movimento está bloqueado nesta tela. Ele funciona com o jogo aberto direto no navegador do celular (Safari ou Chrome), por um endereço https. Aqui, use o manche na tela.';
     });
   });
-  tap('m-stick', function () { initAudio(); mode = 'stick'; startPlay(); });
+  tap('m-stick', function () { initAudio(); goFull(); mode = 'stick'; startPlay(); });
   tap('c-go', function () { calibrate(); show('calib', false); if (calibResume) { state = 'pause'; pause(false); show('hud', true); } else startPlay(); });
   tap('c-back', function () { show('calib', false); if (calibResume) { state = 'pause'; show('pause', true); } else { state = 'menu'; show('menu', true); } });
   tap('p-resume', function () { initAudio(); pause(false); });
@@ -683,7 +687,7 @@
   function frame(t) {
     var dt = Math.min(0.05, Math.max(0.001, (t - last) / 1000)); last = t;
     // qualidade automática: só reduz se o aparelho estiver mesmo engasgando. Uma taxa estável de 30 quadros
-    // (Modo Pouca Energia do iPhone limita o navegador a 30) não conta como lentidão.
+    // (o modo de economia de bateria costuma limitar o navegador a 30) não conta como lentidão.
     fAvg += (dt - fAvg) * 0.05; fVar += (Math.abs(dt - fAvg) - fVar) * 0.05;
     var capped = fAvg > 1 / 37 && fAvg < 1 / 26 && fVar < 0.006, slow = fAvg > 1 / 22 || (fAvg > 1 / 46 && !capped);
     if (state === 'play' && opt.gfx === 0) {
