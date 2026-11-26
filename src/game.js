@@ -411,7 +411,7 @@
   function simulate(dt) {
     readInput(dt);
     simT += dt; stats.time += flight.hasFlown || !flight.onGround ? dt : 0;
-    windNow.set(wind.x + Math.sin(simT * 0.7) * 0.5 + Math.sin(simT * 2.3) * 0.25, 0, wind.z + Math.cos(simT * 0.9) * 0.5 + Math.sin(simT * 3.1) * 0.25);
+    windNow.set(wind.x + Math.sin(simT * 0.23) * 0.3, 0, wind.z + Math.cos(simT * 0.17) * 0.3);                // vento quase constante, sem rajada que mexa o avião sozinho
     var n = Math.max(1, Math.ceil(dt / H - 1e-6)), h = dt / n;
     for (var si = 0; si < n; si++) { flight.step(h, ctl, windNow); if (!flight.crashed && !flight.onGround) hitWires(); }
     if (!flight.crashed && (!flight.onGround || Math.abs(flight.vf) > 3)) hitObjects();

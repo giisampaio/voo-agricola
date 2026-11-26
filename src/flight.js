@@ -53,7 +53,7 @@ function Flight() {
 }
 
 Flight.prototype.reset = function (o) {
-  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0; this.impact = new THREE.Vector3();
+  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0; this.rudAct = 0; this.impact = new THREE.Vector3();
   this.psi = o.psi || 0; this.theta = AC.thetaGround; this.phi = 0;
   this.onGround = true; this.vf = 0; this.p = 0; this.q = 0; this.r = 0;
   this.pow = 0; this.rev = 0; this.flap = o.flap || 0; this.flapPos = this.flap; this.hopper = o.hopper || 0;
@@ -173,7 +173,10 @@ Flight.prototype._air = function (dt, c, wind) {
   var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 14 * D2R);
   this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.35 : 1.5));
   var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
-  var dr = clamp(0.45 * ped + (1 - Math.abs(ped)) * 4 * beta - 0.6 * this.r, -1, 1);
+  // leme automático só entra quando há comando de rolagem ou o avião está inclinado; em voo reto fica neutro
+  var want = clamp(Math.max(Math.abs(da) * 3, (Math.abs(this.phi) - 3 * D2R) / (9 * D2R)), 0, 1);
+  this.rudAct += (want - this.rudAct) * Math.min(1, dt * 4);
+  var dr = clamp(0.45 * ped + this.rudAct * ((1 - Math.abs(ped)) * (4 * beta + 0.3 * da) - 0.6 * this.r), -1, 1);
   var eff = (1 - 0.6 * co.sig) * (nW ? 0.45 : 1);
   if (dg.tail) dr = 0;
 
