@@ -345,7 +345,7 @@
   function sizeMini() { mSize = SH < 330 ? 80 : 92; mini.width = Math.round(mSize * PR); mini.height = Math.round(mSize * PR); }
 
   // arco de direção: a seta mostra para onde virar para chegar à cabeceira da faixa-alvo (ou à pista, no fim)
-  var fd = { a: 0, px: 999, txtT: 0, cls: '', vis: false };
+  var fd = { a: 0, px: 999, text: '', cls: '', vis: false };
   function updateFD(dt) {
     var on = !flight.onGround && !flight.crashed;
     if (on !== fd.vis) { fd.vis = on; show('fd', on); } if (!on) return;
@@ -375,7 +375,7 @@
     if (px !== fd.px) { fd.px = px; $('fd-m').setAttribute('transform', 'translate(' + (120 * Math.sin(fd.a)).toFixed(1) + ',' + (120 - 120 * Math.cos(fd.a)).toFixed(1) + ') rotate(' + (fd.a / D2R).toFixed(1) + ')'); }
     var cls = Math.abs(rel) > Math.PI / 2 ? 'behind' : (Math.abs(rel) < 4 * D2R ? 'on' : '');
     if (cls !== fd.cls) { fd.cls = cls; $('fd').setAttribute('class', cls); }
-    fd.txtT -= dt; if (fd.txtT <= 0) { fd.txtT = 0.25; $('fd-t').textContent = label + (dist >= 1000 ? fmt(dist / 1000, 1) + ' km' : Math.max(0, Math.round(dist / 10) * 10) + ' m'); }
+    fd.text = label + (dist >= 1000 ? fmt(dist / 1000, 1) + ' km' : Math.max(0, Math.round(dist / 10) * 10) + ' m');
   }
 
   function updateHud(dt) {
@@ -389,8 +389,8 @@
       var side = (wc - g.w) * (f.wx * v1.x + f.wz * v1.z);
       on = clamp(Math.round((LB - 1) / 2 + side / 1.5), 0, LB - 1);
       var done = f.tier[i] > 0; cls = done ? 'done' : (Math.abs(side) < 2 ? 'good' : 'off');
-      if (tick) $('lb-txt').textContent = f.name + ' · faixa ' + (i + 1) + '/' + f.nSw + (done ? ' feita' : '') + ' · ' + fmt(Math.abs(side), 1) + ' m';
-    } else if (tick) $('lb-txt').textContent = flight.onGround ? 'Guia de faixa' : 'Fora da área';
+      if (tick) $('lb-txt').textContent = fd.vis && fd.text ? fd.text : f.name + ' · faixa ' + (i + 1) + '/' + f.nSw;
+    } else if (tick) $('lb-txt').textContent = flight.onGround ? ref().farm + ' · ' + ref().name : (fd.vis && fd.text ? fd.text : 'Fora da área');
     if (on !== ledOn || $('lb-leds').className !== cls) { if (ledOn >= 0) leds[ledOn].classList.remove('lit'); if (on >= 0) leds[on].classList.add('lit'); ledOn = on; $('lb-leds').className = cls; }
     if (!tick) return;
     var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.agl * M2FT;
