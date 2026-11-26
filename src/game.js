@@ -248,7 +248,7 @@
   }
   var tpKey = '', vsAvg = 0, vsShown = null, vsCls = '';
   function drawTapes(force) {
-    var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = Math.max(0, flight.agl * M2FT);
+    var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = Math.max(0, flight.hw * M2FT);
     var key = Math.round(kt * 2) + '|' + Math.round(ft * (altFine ? 2 : 0.4)) + '|' + flight.flap + '|' + Math.round(flight.hopper / 40) + '|' + tpH;
     if (key === tpKey && !force) return; tpKey = key;
     var fp = flight.flapPos, clm = 1.72 + (fp <= 1 ? 0.28 * fp : 0.28 + 0.36 * (fp - 1));
@@ -403,9 +403,9 @@
     } else if (tick) $('lb-txt').textContent = flight.onGround ? ref().farm + ' · ' + ref().name : (fd.vis && fd.text ? fd.text : 'Fora da área');
     if (on !== ledOn || $('lb-leds').className !== cls) { if (ledOn >= 0) leds[ledOn].classList.remove('lit'); if (on >= 0) leds[on].classList.add('lit'); ledOn = on; $('lb-leds').className = cls; }
     if (!tick) return;
-    var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.agl * M2FT;
+    var kt = flight.V * Math.sqrt(RHO / 1.225) * MS2KT, ft = flight.hw * M2FT;
     // razão de subida, arredondada a 50 ft/min; perto do solo as cores seguem os limites do trem
-    vsAvg += (flight.vel.y * 196.85 - vsAvg) * 0.5; var vs = flight.onGround ? 0 : Math.round(vsAvg / 50) * 50, low = !flight.onGround && flight.agl < 30 && vs < 0;
+    vsAvg += (flight.vel.y * 196.85 - vsAvg) * 0.5; var vs = flight.onGround ? 0 : Math.round(vsAvg / 50) * 50, low = !flight.onGround && flight.hw < 30 && vs < 0;
     var vcls = (vs > 0 ? 'up' : (vs < 0 ? 'dn' : 'lvl')) + (low && vs <= -670 ? ' bad' : (low && vs <= -370 ? ' warn' : ''));
     if (vs !== vsShown || vcls !== vsCls) { vsShown = vs; vsCls = vcls; $('vsi-v').textContent = Math.abs(vs); $('vsi').className = vcls; }
     $('h-hop').textContent = Math.round(flight.hopper); $('hop-fill').style.width = (flight.hopper / START.hopper * 100) + '%';
@@ -415,7 +415,7 @@
     var w = '', wc2 = '';
     if (dm.fire) { w = 'FOGO NO MOTOR'; wc2 = 'bad'; }
     else if (!flight.onGround && flight.alpha > AC.aWarn) { w = 'ESTOL'; wc2 = 'bad'; }
-    else if (spraying && flight.agl > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; }
+    else if (spraying && flight.hw > H_MAX) { w = 'ALTO DEMAIS · DESÇA DE 65 FT'; wc2 = 'warn'; }
     else if (!flight.onGround && flight.agl < 2.2 && flight.vel.y < -0.5) { w = 'SOLO'; wc2 = 'bad'; }
     $('warn').textContent = w; $('warn').className = wc2;
   }
@@ -615,10 +615,10 @@
       flight.hopper -= lit; stats.applied += lit;
       spray.emit(flight, 9);
       var frac = 0;
-      if (!flight.onGround && flight.agl <= H_MAX) {
+      if (!flight.onGround && flight.hw <= H_MAX) {
         v1.set(1, 0, 0).applyQuaternion(flight.quat); var rl = Math.sqrt(v1.x * v1.x + v1.z * v1.z) || 1;
         frac = applySwath(lastX, lastZ, flight.pos.x, flight.pos.z, v1.x / rl, v1.z / rl, simT);
-        lowNow = flight.agl <= H_LOW;
+        lowNow = flight.hw <= H_LOW;
       }
       stats.waste += lit * (1 - frac);
       // produto indo fora: o patrão reclama

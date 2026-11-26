@@ -53,13 +53,13 @@ function Flight() {
 }
 
 Flight.prototype.reset = function (o) {
-  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0; this.rudAct = 0; this.impact = new THREE.Vector3();
+  this.dmg = { gear: 0, wingL: false, wingR: false, engine: false, fire: false, tail: false }; this.belly = false; this.events = []; this.lastSink = 0; this.hRef = null; this.hHoldT = 0; this.rudAct = 0; this.skid = 0; this.skidS = 0; this.impact = new THREE.Vector3();
   this.psi = o.psi || 0; this.theta = AC.thetaGround; this.phi = 0;
   this.onGround = true; this.vf = 0; this.p = 0; this.q = 0; this.r = 0;
   this.pow = 0; this.rev = 0; this.flap = o.flap || 0; this.flapPos = this.flap; this.hopper = o.hopper || 0;
   this.alphaTrim = 0; this.alpha = 0; this.beta = 0; this.V = 0; this.nz = 1; this.sig = 0;
   this.gamma = 0; this.crashed = null; this.dropSign = 1; this.groundY = 0; this.airTime = 0;
-  this.de = 0; this.da = 0; this.dr = 0; this.agl = 0; this.hasFlown = false; this.gI = 0;
+  this.de = 0; this.da = 0; this.dr = 0; this.agl = 0; this.hw = 0; this.hasFlown = false; this.gI = 0;
   this.pos.set(o.x, 0, o.z); this.vel.set(0, 0, 0);
   this._placeOnGround(); this._setQuat();
 };
@@ -124,11 +124,11 @@ Flight.prototype._ground = function (dt, c, wind) {
   this.pos.x += fx * this.vf * dt; this.pos.z += fz * this.vf * dt;
   this._placeOnGround(); this._setQuat();
   this.vel.set(fx * this.vf, 0, fz * this.vf);
-  this.V = Va; this.alpha = this.theta; this.beta = 0; this.nz = 1; this.sig = co.sig; this.gamma = 0; this.agl = 0;
+  this.V = Va; this.alpha = this.theta; this.beta = 0; this.nz = 1; this.sig = co.sig; this.gamma = 0; this.agl = 0; this.hw = 0;
   this.de = c.pitch; this.da = c.roll; this.dr = steer;
   if (Va > 22 && !this.belly && this.rev < 0.05 && L * Math.cos(this.theta) + T * Math.sin(this.theta) > W) {
     this.onGround = false; this.vel.y = 0.6; this.pos.y += 0.03;
-    this.p = this.q = this.r = 0; this.alphaTrim = this.theta; this.airTime = 0;
+    this.p = this.q = this.r = 0; this.alphaTrim = this.theta; this.airTime = 0; this.hRef = null; this.hHoldT = 0;
   }
 };
 
@@ -158,29 +158,41 @@ Flight.prototype._air = function (dt, c, wind) {
     var ph = clamp(this.phi, -1.2, 1.2), qTurn = G * Math.sin(ph) * Math.tan(ph) / V;
     // proteção de velocidade: conforme a velocidade chega perto do estol, o nariz comandado baixa sozinho
     var hgt = this.pos.y - this.groundY, fpo = this.flapPos, clm = 1.72 + (fpo <= 1 ? 0.28 * fpo : 0.28 + 0.36 * (fpo - 1));
-    var vsNow = Math.sqrt(2 * W / (RHO * AC.S * clm)), gUp = clamp(32 * D2R * (V / vsNow - 1.13) / 0.33, hgt < 15 ? 0 : -8 * D2R, 32 * D2R);
+    var vsNow = Math.sqrt(2 * W / (RHO * AC.S * clm)), gUp = clamp(32 * D2R * (V / vsNow - 1.13) / 0.33, hgt < 4.5 ? 0 : (hgt < 15 ? -3 * D2R : -8 * D2R), 32 * D2R);
     var gDn = -Math.atan2(Math.max(hgt - 1.9, 0) + 0.6, V * 3.5);    // perto do chão, a descida comandada fica rasa: não deixa mergulhar no solo
-    var ge = clamp(c.pitch * 32 * D2R, gDn, Math.max(gUp, gDn)) - this.gamma;
+    // manche de arfagem solto: segura a altura em que foi solto (ajuda a voar rasante e a não afundar nas curvas)
+    if (Math.abs(c.pitch) < 0.05) { this.hHoldT += dt; if (this.hHoldT > 0.3 && this.hRef === null) this.hRef = hgt; } else { this.hHoldT = 0; this.hRef = null; }
+    var gCmd = this.hRef !== null ? clamp((this.hRef - hgt) * 0.5 / V, -4 * D2R, 6 * D2R) : c.pitch * 32 * D2R;
+    var ge = clamp(gCmd, gDn, Math.max(gUp, gDn)) - this.gamma;
     this.gI = clamp((this.gI || 0) + ge * dt * 1.5, -0.3, 0.3);
-    de = 4.5 * ge + this.gI - 0.4 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
+    de = 6.5 * ge + this.gI - 0.5 * (this.q - qTurn) - AC.CMQ * qTurn * (AC.c / (2 * V)) / AC.CMDE;
     if (alpha > AC.aProt) de -= (alpha - AC.aProt) * 25;             // proteção de ângulo de ataque
     de = clamp(de, -1, 1);
     // inclinação comandada até 75°, limitada ao que a asa sustenta em curva nivelada com a velocidade e o peso atuais
     var nAv = qS * (co.cl0 + AC.CLA * (AC.aProt + 1.5 * D2R)) * (nW ? 0.5 : 1) / W;
-    var BMAX = 80 * D2R;
-    var phiMax = nAv > 1.06 ? Math.min(BMAX, Math.acos(1 / (nAv * 0.95))) : 0.2;
+    var BMAX = 80 * D2R, sink = -this.vel.y;
+    var phiLift = nAv > 1.06 ? Math.min(BMAX, Math.acos(1 / (nAv * 0.9))) : 0.2;      // o que a asa sustenta nivelado, com folga
     // com altura sobrando o limite de sustentação some: dá para deitar a asa no topo do balão e deixar o nariz cair
-    var sink = -this.vel.y, rec = sink > 1 ? sstep(hgt / sink, 3.5, 8) : 1;     // segundos até o chão no ritmo atual de descida
-    phiMax = phiMax * (0.3 + 0.7 * rec) + (BMAX - phiMax) * sstep(hgt, 22, 50) * rec;  // afundando perto do chão: desinclina para recuperar
-    phiMax = Math.min(phiMax, Math.asin(clamp((hgt - 1.4) / 8.4, 0.05, 1)));   // perto do chão, não deixa a ponta da asa tocar
-    this.phiMax = phiMax;
-    da = clamp(3.0 * (clamp(c.roll * 80 * D2R, -phiMax, phiMax) - this.phi) - 0.4 * this.p, -1, 1);
-  } else { de = clamp(c.pitch, -1, 1); da = clamp(c.roll, -1, 1); }
+    var phiMax = phiLift + (BMAX - phiLift) * sstep(hgt, 22, 50);
+    // só desinclina sozinho no último instante: menos de 3 s para o chão no ritmo atual de descida
+    if (sink > 1.5) phiMax *= 0.55 + 0.45 * sstep(hgt / sink, 1.2, 3);
+    // perto do chão, a ponta da asa manda: deixa 1 m de folga, contando a altura que ainda vai perder
+    var hTip = this.hRef !== null ? Math.min(hgt, this.hRef + 0.4) : hgt;       // segurando altura: o limite não oscila com o avião
+    var phiTip = Math.asin(clamp((hTip - 0.5 * Math.max(sink, 0) - 1.0) / 8.2, 0.05, 1));
+    var cmdPhi = c.roll * 80 * D2R, lim = Math.min(phiMax, phiTip);
+    // rasante: a inclinação só avança no ritmo em que a sustentação chega, para a entrada de curva não afundar
+    if (hgt < 18) lim = Math.min(lim, Math.acos(1 / Math.max(1.03, this.nz + 0.22)) + (BMAX) * sstep(hgt, 10, 18));
+    // o que a inclinação não pode dar por causa do chão, o leme dá: curva derrapada para ajustar no eixo da faixa
+    this.skid = phiTip < phiMax ? clamp((Math.abs(cmdPhi) - phiTip) / (25 * D2R), 0, 1) * (cmdPhi > 0 ? 1 : -1) : 0;
+    this.phiMax = lim;
+    da = clamp(3.0 * (clamp(cmdPhi, -lim, lim) - this.phi) - 0.4 * this.p, -1, 1);
+  } else { de = clamp(c.pitch, -1, 1); da = clamp(c.roll, -1, 1); this.skid = 0; }
   // compensador automático (mantém ~1 g com o manche neutro)
   var nReq = Math.cos(this.gamma) * (c.assist ? 1 / Math.max(Math.cos(this.phi), 0.25) : 1);
   var a1 = clamp((nReq * W / qS - co.cl0) / AC.CLA, -3 * D2R, 14 * D2R);
-  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.35 : 1.5));
-  var ped = c.yaw || 0;                                           // pedal vence a coordenação automática: glissada/derrapagem
+  this.alphaTrim += (a1 - this.alphaTrim) * Math.min(1, dt / (c.assist ? 0.14 : 1.5));
+  this.skidS = (this.skidS || 0) + ((this.skid || 0) - (this.skidS || 0)) * Math.min(1, dt * 5);
+  var ped = clamp((c.yaw || 0) + this.skidS, -1, 1);              // pedal vence a coordenação automática: glissada/derrapagem
   // leme automático só entra quando há comando de rolagem ou o avião está inclinado; em voo reto fica neutro
   var want = clamp(Math.max(Math.abs(da) * 3, (Math.abs(this.phi) - 3 * D2R) / (9 * D2R)), 0, 1);
   this.rudAct += (want - this.rudAct) * Math.min(1, dt * 4);
@@ -222,7 +234,7 @@ Flight.prototype._air = function (dt, c, wind) {
     var y = this.worldPoint(pts[i], pt).y; if (y < low) { low = y; which = i; }
   }
   if (dm.gear === 2 && this.pos.y - 0.85 < low) { low = this.pos.y - 0.85; which = 6; }      // sem trem: a barriga toca
-  this.agl = low - this.groundY;
+  this.agl = low - this.groundY; this.hw = Math.max(0, this.pos.y - this.groundY - 1.9);
   if (this.agl <= 0) this._contact(which, -this.vel.y);
 };
 
