@@ -200,6 +200,21 @@ function buildWorld(scene, aniso) {
   W.markField = function (f) {                                    // quatro marcos altos nos cantos: dá para achar o talhão de longe
     corn.forEach(function (m, k) { m.visible = !!f; if (f) { var p = [f.cx + f.ux * (k < 2 ? -1 : 1) * f.len / 2 + f.wx * (k % 2 ? 1 : -1) * f.wid / 2, f.cz + f.uz * (k < 2 ? -1 : 1) * f.len / 2 + f.wz * (k % 2 ? 1 : -1) * f.wid / 2]; m.position.set(p[0], 23, p[1]); } });
   };
+  // pino de localização: marcador flutuante de tamanho fixo na tela, visível de qualquer distância
+  W.makePin = function (color) {
+    var cv = document.createElement('canvas'); cv.width = 512; cv.height = 300; var tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+    var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false, fog: false }));
+    sp.center.set(0.5, 0); sp.scale.set(0.46, 0.27, 1); sp.renderOrder = 30; sp.visible = false; scene.add(sp);
+    sp.setText = function (a, b) {
+      var g = cv.getContext('2d'); g.clearRect(0, 0, 512, 300); g.textAlign = 'center'; g.lineJoin = 'round';
+      g.font = '700 40px Arial, Helvetica, sans-serif'; g.lineWidth = 9; g.strokeStyle = 'rgba(0,0,0,0.8)'; g.strokeText(a, 256, 44); g.fillStyle = '#ffffff'; g.fillText(a, 256, 44);
+      if (b) { g.font = '700 30px Arial, Helvetica, sans-serif'; g.lineWidth = 8; g.strokeText(b, 256, 84); g.fillStyle = color; g.fillText(b, 256, 84); }
+      g.beginPath(); g.moveTo(256, 296); g.bezierCurveTo(196, 220, 176, 196, 176, 166); g.arc(256, 166, 80, Math.PI, 0); g.bezierCurveTo(336, 196, 316, 220, 256, 296); g.closePath();
+      g.fillStyle = color; g.fill(); g.lineWidth = 8; g.strokeStyle = 'rgba(0,0,0,0.65)'; g.stroke();
+      g.beginPath(); g.arc(256, 166, 30, 0, 6.3); g.fillStyle = color === '#ffffff' ? '#1c7a33' : '#ffffff'; g.fill(); tex.needsUpdate = true;
+    };
+    return sp;
+  };
   W.setLane = function (f, i) {
     if (!f) { lane.visible = bcn[0].visible = bcn[1].visible = lead[0].visible = lead[1].visible = false; return; }
     var wc = -f.wid / 2 + (i + 0.5) * SWATH, l = f.len / 2, h = SWATH / 2, a = laneG.attributes.position;

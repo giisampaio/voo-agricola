@@ -39,7 +39,7 @@
     stage.style.width = SW + 'px'; stage.style.height = SH + 'px'; stage.classList.toggle('rot', rotated);
     stage.classList.toggle('short', SH < 330); stage.classList.toggle('narrow', SW < 720);
     renderer.setSize(SW, SH, false); camera.aspect = SW / SH; camera.updateProjectionMatrix();
-    sizeTapes(); tpKey = '';
+    sizeTapes(); tpKey = ''; sizeMini();
     spray.mat.uniforms.uScale.value = fire.mat.uniforms.uScale.value = smoke.mat.uniforms.uScale.value = SH * PR / (2 * Math.tan(camera.fov * D2R / 2));
   }
   window.addEventListener('resize', layout); window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
@@ -288,15 +288,54 @@
     if (rwT <= 0 && rwQ.length) { var r = rwQ.shift(); $('rw-c').textContent = r.c ? '+' + r.c : ''; $('reward').classList.toggle('plain', !r.c); $('rw-t').textContent = r.t; $('rw-x').textContent = r.xp ? '+' + r.xp + ' XP' : ''; show('msg', false); msgT = 0; show('reward', true); rwT = 1.9; sfx('reward', r.tier); }
     if (Math.abs(bank.coins - bank.shown) > 0.5) { bank.shown += (bank.coins - bank.shown) * Math.min(1, dt * 7); if (Math.abs(bank.coins - bank.shown) < 1) bank.shown = bank.coins; $('h-coin').textContent = Math.floor(bank.shown).toLocaleString('pt-BR'); }
     if (bank.xp !== bank.xpShown) { bank.xpShown = bank.xp; $('h-xp').textContent = 'XP ' + bank.xp + ' · NV ' + level(); }
-    updateFD(dt);
+    updateFD(dt); updateNav(dt);
   }
+  // ---------- pinos, avisos de chegada e minimapa ----------
+  var pinF = world.makePin('#7be36a'), pinR = world.makePin('#ffffff'), nav = { atField: false, atRwy: false, land: false, bnT: 0, mapT: 0 };
+  pinR.setText('PISTA SCHEFFER', 'SAPEZAL - MT'); pinR.position.set(0, 55, 0);
+  function banner(t, sub) { $('bn-t').textContent = t; $('bn-s').textContent = sub || ''; show('banner', true); nav.bnT = 3.6; sfx('reward', 2); }
+  function fieldDist(f) { var l = locUW(f), a = Math.max(Math.abs(l.u) - f.len / 2, 0), b = Math.max(Math.abs(l.w) - f.wid / 2, 0); return Math.sqrt(a * a + b * b); }
+  function updateNav(dt) {
+    var f = mission, air = !flight.onGround, bob = Math.sin(simT * 2) * 5;
+    nav.land = f.done || flight.hopper <= 0 || flight.dmg.engine || flight.dmg.gear > 0;
+    var df = fieldDist(f), dr = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(clamp(flight.pos.z, -RWY_HL, RWY_HL) - flight.pos.z, 2));
+    // talhão: o pino aparece até chegar; na chegada mostra o nome e some
+    if (!nav.atField && df < 260 && air) { nav.atField = true; banner(f.farm, f.name + ' · ' + f.prod + ' · ' + f.nSw + ' faixas'); }
+    else if (nav.atField && df > 1300) nav.atField = false;
+    pinF.visible = state === 'play' && !nav.land && !nav.atField; if (pinF.visible) pinF.position.set(f.cx, 70 + bob, f.cz);
+    // pista: pino quando é hora de voltar
+    if (nav.land && !nav.atRwy && dr < 420 && air) { nav.atRwy = true; banner('Pista Scheffer', 'Sapezal - MT · pouse e pare na pista'); }
+    else if (nav.atRwy && dr > 1300) nav.atRwy = false;
+    pinR.visible = state === 'play' && nav.land && !nav.atRwy && air; if (pinR.visible) pinR.position.y = 55 + bob;
+    if (nav.bnT > 0) { nav.bnT -= dt; if (nav.bnT <= 0) show('banner', false); }
+    nav.mapT -= dt; if (nav.mapT <= 0) { nav.mapT = 0.1; drawMini(); }
+  }
+  var mini = $('mini'), gM = mini.getContext('2d'), mSize = 92;
+  function drawMini() {                                            // proa para cima; 1.600 m de raio
+    var S = mSize, c = S / 2, k = c / 1600, sp = Math.sin(flight.psi), cp = Math.cos(flight.psi), f = mission, g = gM, i;
+    var X = function (x, z) { var dx = x - flight.pos.x, dz = z - flight.pos.z; return c + (dx * cp + dz * sp) * k; }, Y = function (x, z) { var dx = x - flight.pos.x, dz = z - flight.pos.z; return c - (dx * sp - dz * cp) * k; };
+    g.setTransform(PR, 0, 0, PR, 0, 0); g.clearRect(0, 0, S, S); g.save(); g.beginPath(); g.arc(c, c, c - 1, 0, 6.3); g.clip();
+    g.strokeStyle = 'rgba(238,243,234,0.18)'; g.lineWidth = 1; g.beginPath(); g.arc(c, c, c / 2, 0, 6.3); g.stroke();
+    var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, cs = [P(-f.len / 2, -f.wid / 2), P(-f.len / 2, f.wid / 2), P(f.len / 2, f.wid / 2), P(f.len / 2, -f.wid / 2)];
+    g.beginPath(); for (i = 0; i < 4; i++) g[i ? 'lineTo' : 'moveTo'](X(cs[i][0], cs[i][1]), Y(cs[i][0], cs[i][1])); g.closePath(); g.fillStyle = f.done ? 'rgba(123,227,106,0.25)' : 'rgba(243,192,16,0.30)'; g.fill(); g.strokeStyle = f.done ? '#7be36a' : '#f3c010'; g.lineWidth = 1.5; g.stroke();
+    if (tgt) { var wc = -f.wid / 2 + (tgt.i + 0.5) * SWATH, a = P(-f.len / 2, wc), b = P(f.len / 2, wc); g.beginPath(); g.moveTo(X(a[0], a[1]), Y(a[0], a[1])); g.lineTo(X(b[0], b[1]), Y(b[0], b[1])); g.strokeStyle = '#fff6c0'; g.lineWidth = 1.5; g.stroke(); }
+    g.beginPath(); g.moveTo(X(0, -RWY_HL), Y(0, -RWY_HL)); g.lineTo(X(0, RWY_HL), Y(0, RWY_HL)); g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+    g.restore();
+    // fora do alcance: ponto na borda, na direção certa
+    var rim = function (x, z, col) { var mx = X(x, z) - c, my = Y(x, z) - c, d = Math.sqrt(mx * mx + my * my); if (d < c - 4) return; g.beginPath(); g.arc(c + mx / d * (c - 4), c + my / d * (c - 4), 4, 0, 6.3); g.fillStyle = col; g.fill(); };
+    rim(f.cx, f.cz, f.done ? '#7be36a' : '#f3c010'); rim(0, 0, '#ffffff');
+    g.beginPath(); g.moveTo(c, c - 7); g.lineTo(c + 5, c + 5); g.lineTo(c, c + 2); g.lineTo(c - 5, c + 5); g.closePath(); g.fillStyle = '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1; g.fill(); g.stroke();
+    var nx = c + -sp * (c - 9), ny = c - cp * (c - 9); g.font = '700 9px ' + FNT; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ff8a7a'; g.fillText('N', nx, ny);
+  }
+  function sizeMini() { mSize = SH < 330 ? 80 : 92; mini.width = Math.round(mSize * PR); mini.height = Math.round(mSize * PR); }
+
   // arco de direção: a seta mostra para onde virar para chegar à cabeceira da faixa-alvo (ou à pista, no fim)
   var fd = { a: 0, px: 999, txtT: 0, cls: '', vis: false };
   function updateFD(dt) {
     var on = !flight.onGround && !flight.crashed;
     if (on !== fd.vis) { fd.vis = on; show('fd', on); } if (!on) return;
     var fx = Math.sin(flight.psi), fz = -Math.cos(flight.psi), ax, az, dist, label;
-    if (tgt) {
+    if (tgt && !(flight.hopper <= 0 || flight.dmg.engine)) {
       var f = tgt.f, l = locUW(f), wc = -f.wid / 2 + (tgt.i + 0.5) * SWATH, hx = fx * f.ux + fz * f.uz, au, E;
       if (Math.abs(l.u) < f.len / 2 + 20 && Math.abs(l.w - wc) < SWATH * 0.9 && Math.abs(hx) > 0.8) { au = l.u + (hx > 0 ? 170 : -170); dist = f.len / 2 - l.u * (hx > 0 ? 1 : -1); label = 'FAIXA ' + (tgt.i + 1) + ' · FIM EM '; }
       else {
@@ -312,7 +351,7 @@
       ax = f.cx + f.ux * au + f.wx * (aw === undefined ? wc : aw); az = f.cz + f.uz * au + f.wz * (aw === undefined ? wc : aw);
     } else {
       var Ez = flight.pos.z >= 0 ? 1 : -1, al = Math.abs(flight.pos.x) < 50 && fz * Ez < -0.5 && Math.abs(flight.pos.z) > RWY_HL;
-      ax = 0; az = Ez * (RWY_HL + (al ? clamp(Math.abs(flight.pos.z) - RWY_HL - 150, -200, 500) : 500)); dist = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(Ez * RWY_HL - flight.pos.z, 2)); label = 'PISTA · ';
+      ax = 0; az = Ez * (RWY_HL + (al ? clamp(Math.abs(flight.pos.z) - RWY_HL - 150, -200, 500) : 500)); dist = Math.sqrt(flight.pos.x * flight.pos.x + Math.pow(Ez * RWY_HL - flight.pos.z, 2)); label = 'PISTA SCHEFFER · ';
     }
     var dx = ax - flight.pos.x, dz = az - flight.pos.z, rel = Math.atan2(dx * -fz + dz * fx, dx * fx + dz * fz);
     var a = clamp(rel, -Math.PI / 2, Math.PI / 2) * (50 / 90);
@@ -362,7 +401,7 @@
     START.hopper = missionLoad(mission); flight.reset(START); resetFields(mission); world.markField(mission); spray.clear(); fire.clear(); smoke.clear(); world.resetWires(); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
     setThrottle(0); setBrake(false); rud.bar = rud.l = rud.r = rud.val = 0; paintFlap(); toggleSpray(false); camMode = 0; plane.canopy.visible = true; camSnap = true;
-    wasGround = true; stats.applied = stats.waste = stats.time = 0; plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
+    wasGround = true; stats.applied = stats.waste = stats.time = 0; nav.atField = nav.atRwy = nav.land = false; nav.bnT = 0; show('banner', false); pinF.visible = pinR.visible = false; pinF.setText(mission.farm.toUpperCase(), mission.name.toUpperCase()); plan = null; lowNow = false; mission.passAll = mission.passLow = 0; bank.coins = bank.xp = bank.shown = bank.tick = 0; bank.xpShown = -1; rwQ.length = 0; rwT = 0; show('reward', false); tgt = null; tgtT = 0; curF = null; lastSw = -1; world.setLane(null); $('h-coin').textContent = '0'; fd.vis = false; show('fd', false); simT = 0; hint.t = 0; hint.flap = hint.empty = hint.done = false; lastX = flight.pos.x; lastZ = flight.pos.z;
   }
   function startPlay() {
     resetGame(); state = 'play'; applyMode();
@@ -379,7 +418,7 @@
   }
   var calibResume = false;
   function finish(crash) {
-    state = 'end'; show('hud', false); toggleSpray(false);
+    state = 'end'; show('hud', false); toggleSpray(false); pinF.visible = pinR.visible = false; show('banner', false);
     var tot = 0, cov = 0, ov = 0, rows = '';
     ACTIVE.forEach(function (f) { tot += f.grid.length; cov += f.cov; ov += f.over; rows += '<tr><td>' + f.name + '</td><td>' + fmt(f.cov / f.grid.length * 100, 1) + '%</td><td>' + fmt(f.over / f.grid.length * 100, 1) + '%</td></tr>'; });
     var cp = cov / tot * 100, op = ov / tot * 100, wp = stats.applied > 0 ? stats.waste / stats.applied * 100 : 0;
@@ -545,14 +584,14 @@
         lowNow = flight.agl <= H_LOW;
       }
       stats.waste += lit * (1 - frac);
-      if (flight.hopper <= 0) { toggleSpray(false); if (!hint.empty) { hint.empty = true; say('Hopper vazio. Volte para a pista e pouse.', 6); } }
+      if (flight.hopper <= 0) { toggleSpray(false); if (!hint.empty) { hint.empty = true; say('Hopper vazio. Volte para a Pista Scheffer: siga o pino branco e o arco.', 6); } }
     }
     lastX = flight.pos.x; lastZ = flight.pos.z;
     updateGame(dt);
     ACTIVE.forEach(function (f) { if (f.dirty && Math.floor(simT * 20) !== Math.floor((simT - dt) * 20)) { f.tex.needsUpdate = true; f.dirty = false; } });
     // dicas
     if (!hint.flap && !flight.onGround && flight.flap > 0 && flight.agl > 15 && flight.V * MS2KT > 92) { hint.flap = true; say('Recolha o flape. Desça para 10 ft sobre o talhão e ligue a aplicação.', 7); }
-    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Siga o arco até a pista e pouse.', tier: 2 }); }
+    if (!hint.done && ACTIVE.every(function (f) { return f.done; })) { hint.done = true; rwQ.push({ c: 0, xp: 0, t: 'Tudo aplicado. Volte para a Pista Scheffer: siga o pino branco e o arco.', tier: 2 }); }
     if (flight.hasFlown && flight.onGround && Math.abs(flight.vf) < 0.3 && (lever === P0 || flight.belly || flight.dmg.engine)) { stopT += dt; if (stopT > (flight.belly ? 2.5 : 1.2)) finish(null); } else stopT = 0;
   }
 
