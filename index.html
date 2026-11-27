@@ -18,6 +18,8 @@
   --f-num:'B612 Mono',ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
 }
+html{min-height:calc(100% + env(safe-area-inset-top))}
+#probe{position:fixed;left:0;top:0;right:0;bottom:0;visibility:hidden;pointer-events:none}
 html,body{height:100%;margin:0;background:#0b120e;overflow:hidden;overscroll-behavior:none}
 body{font-family:var(--f-ui);color:var(--ink);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:none}
 #stage{position:fixed;left:0;top:0;width:100%;height:100%;transform-origin:0 0;overflow:hidden;background:#0b120e;touch-action:none;
@@ -193,6 +195,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 </style>
 </head>
 <body>
+<div id="probe"></div>
 <div id="stage">
   <canvas id="gl"></canvas>
 
@@ -1321,8 +1324,12 @@ function makeAudio(c) {
   var v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3(), q1 = new THREE.Quaternion();
 
   // ---------- layout: força paisagem mesmo com a tela travada em retrato ----------
+  var VW = window.innerWidth;
   function layout() {
-    var w = window.innerWidth, h = window.innerHeight; rotated = h > w * 1.05;
+    // área realmente visível: no app salvo na tela de início o iOS informa uma altura maior que a que desenha
+    var de = document.documentElement, vv = window.visualViewport, pr = $('probe').getBoundingClientRect();
+    var pick = function (a) { var m = 1e9; a.forEach(function (v) { if (v > 50 && v < m) m = v; }); return m; };
+    var w = pick([window.innerWidth, de.clientWidth, pr.width, vv ? vv.width * vv.scale : 0]), h = pick([window.innerHeight, de.clientHeight, pr.height, vv ? vv.height * vv.scale : 0]); rotated = h > w * 1.05; VW = w;
     if (rotated) { SW = h; SH = w; stage.style.transform = 'translateX(' + w + 'px) rotate(90deg)'; }
     else { SW = w; SH = h; stage.style.transform = 'none'; }
     stage.style.width = SW + 'px'; stage.style.height = SH + 'px'; stage.classList.toggle('rot', rotated);
@@ -1331,8 +1338,12 @@ function makeAudio(c) {
     sizeTapes(); tpKey = ''; sizeMini();
     spray.mat.uniforms.uScale.value = fire.mat.uniforms.uScale.value = smoke.mat.uniforms.uScale.value = SH * PR / (2 * Math.tan(camera.fov * D2R / 2));
   }
+  var relayout = function () { var k = window.innerWidth + 'x' + window.innerHeight + 'x' + document.documentElement.clientHeight + 'x' + $('probe').getBoundingClientRect().height; if (k !== relayout.k) { relayout.k = k; layout(); } };
   window.addEventListener('resize', layout); window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
-  function stagePt(e) { return rotated ? { x: e.clientY, y: window.innerWidth - e.clientX } : { x: e.clientX, y: e.clientY }; }
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', layout);
+  window.addEventListener('pageshow', function () { setTimeout(layout, 60); }); document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(layout, 120); });
+  [150, 500, 1200, 2500].forEach(function (ms) { setTimeout(layout, ms); }); setInterval(relayout, 1500);          // o iOS às vezes só acerta a medida depois de abrir
+  function stagePt(e) { return rotated ? { x: e.clientY, y: VW - e.clientX } : { x: e.clientX, y: e.clientY }; }
   function stageRect(el) { var x = 0, y = 0, e = el; while (e && e !== stage) { x += e.offsetLeft; y += e.offsetTop; e = e.offsetParent; } return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight }; }
 
   // ---------- sensor de inclinação ----------
@@ -1549,8 +1560,8 @@ function makeAudio(c) {
   }
 
   // ---------- moedas, XP e orientação ----------
-  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0, prog: 0 };
-  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.prog = Math.min(FIELDS.length, sv.prog || (sv.tut ? 1 : 0)); } } catch (e) { }
+  var KEY = 'voo-agricola.v1', wallet = { coins: 0, xp: 0, prog: 0, ok: [] };
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv && typeof sv.coins === 'number') { wallet.coins = sv.coins; wallet.xp = sv.xp || 0; wallet.prog = Math.min(FIELDS.length, sv.prog || (sv.tut ? 1 : 0)); wallet.ok = Array.isArray(sv.ok) ? sv.ok : []; for (var pk = 0; pk < wallet.prog; pk++) wallet.ok[pk] = 1; } } catch (e) { }
   var bank = { coins: 0, xp: 0, shown: 0, tick: 0, xpShown: -1 }, rwQ = [], rwT = 0, tgt = null, tgtT = 0, curF = null, lastSw = -1;
   var H_MAX = 20, H_LOW = 6.5, lowNow = false, plan = null;            // aplicação vale até 65 ft; até 21 ft é rasante e paga em dobro
   var COIN_M = 1, TIER = [null, { q: 0.72, c: 40, xp: 1, t: 'Faixa aceitável' }, { q: 0.88, c: 80, xp: 2, t: 'Faixa boa' }, { q: 0.96, c: 150, xp: 5, t: 'Faixa perfeita' }];
@@ -1759,7 +1770,7 @@ function makeAudio(c) {
     $('end-title').textContent = crash ? 'Perda total' : (bad ? 'Acidente' : (free ? 'Voo livre encerrado' : (mission.done ? 'Missão cumprida' : 'Missão encerrada')));
     var nq = '';
     var mi = FIELDS.indexOf(mission); nextM = null;
-    if (!free) { if (mission.done && wallet.prog <= mi) { wallet.prog = mi + 1; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } notes.push(mi === 0 ? 'Missão 2 e voo livre liberados' : (mi + 1 < FIELDS.length ? 'Missão ' + (mi + 2) + ' liberada' : 'Todas as missões cumpridas')); }
+    if (!free) { if (mission.done && !wallet.ok[mi]) { wallet.ok[mi] = 1; try { localStorage.setItem(KEY, JSON.stringify(wallet)); } catch (e) { } var nOk = 0; FIELDS.forEach(function (x, k) { if (wallet.ok[k]) nOk++; }); notes.push(nOk === FIELDS.length ? 'Todas as missões cumpridas' : nOk + ' de ' + FIELDS.length + ' missões cumpridas'); }
       if (mission.done && !crash && mi + 1 < FIELDS.length) nextM = FIELDS[mi + 1];
       if (mi > 0) nq = crash ? 'Seu Eliseu: “Ó, piloto ruim, meu Deuuus!”' : (mission.done ? (bad ? 'Seu Eliseu: “Ê, piloto, vai me falir!”' : 'Seu Eliseu: “Ó, piloto bão! Vem tomar café da fazenda.”') : 'Seu Eliseu: “Ficou faixa sem fazer, piloto!”');
       else nq = crash ? 'Naldinho: “Avião a gente conserta. Bora de novo.”' : (mission.done ? (bad ? 'Naldinho: “Talhão pronto, mas capricha no pouso.”' : 'Naldinho: “Missão cumprida! Agora é com o Seu Eliseu.”') : 'Naldinho: “Ficou faixa sem fazer. Fecha o talhão.”'); }
@@ -1777,7 +1788,7 @@ function makeAudio(c) {
   }
   function paintMissions() {
     var box = $('missions'), lv = 1 + Math.floor(wallet.xp / 40); box.textContent = '';
-    if (free && !wallet.prog) free = false; if (!free && FIELDS.indexOf(mission) > wallet.prog) mission = FIELDS[Math.min(wallet.prog, FIELDS.length - 1)];
+    
     var pick = function (f, isFree) { return function () { free = isFree; if (f) mission = f; paintMissions(); resetGame(); }; };
     var btn = function (par, title, desc, sel, locked, fn) {
       var b = document.createElement('button'); b.type = 'button'; b.className = 'mis' + (sel ? ' sel' : ''); b.disabled = locked; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
@@ -1786,12 +1797,12 @@ function makeAudio(c) {
     var row = null, farm = '';
     FIELDS.forEach(function (f, k) {
       if (f.farm !== farm) { farm = f.farm; var h = document.createElement('p'); h.className = 'farm'; h.textContent = farm; box.appendChild(h); row = document.createElement('div'); row.className = 'mrow'; box.appendChild(row); }
-      var locked = k > wallet.prog; btn(row, (k < wallet.prog ? '✓ ' : '') + 'Missão ' + (k + 1), locked ? 'Bloqueada' : f.name + ' · ' + f.nSw + ' faixas', !free && mission === f, locked, pick(f, false));
+      btn(row, (wallet.ok[k] ? '✓ ' : '') + 'Missão ' + (k + 1), f.name + ' · ' + f.nSw + ' faixas', !free && mission === f, false, pick(f, false));
     });
     var o = mission.obs || {}, ob = [];
     if (o.treesU || o.treesW) ob.push('mata'); if (o.wiresU || o.wiresW) ob.push('rede elétrica');
     $('m-info').textContent = free ? 'Voo livre: hopper cheio e todos os talhões para aplicar à vontade.' : mission.farm + ' · ' + mission.name + ' · ' + mission.prod + ' · ' + mission.nSw + ' faixas de ' + mission.len + ' m' + (ob.length ? ' · ' + ob.join(' e ') : '') + (tutor() ? ' · com o instrutor Naldinho' : '') + '.';
-    btn(box, 'Voo livre', wallet.prog ? 'Todos os talhões, hopper cheio' : 'Libera ao concluir a Missão 1', free, !wallet.prog, pick(null, true));
+    btn(box, 'Voo livre', 'Todos os talhões, hopper cheio', free, false, pick(null, true));
     $('m-wallet').textContent = 'Carteira: ' + wallet.coins.toLocaleString('pt-BR') + ' moedas · ' + wallet.xp + ' XP · nível ' + lv;
   }
   function goFull() {
