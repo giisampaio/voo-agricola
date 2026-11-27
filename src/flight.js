@@ -282,9 +282,10 @@ Flight.prototype._contact = function (which, sink) {
     this._bounce(sink, 0.25); this.q += 0.5; this.vel.x *= 0.85; this.vel.z *= 0.85; return;
   }
   if (d.gear === 2 || d.wingL || d.wingR) { if (sink > 4.5) return this.destroy('Impacto violento com o solo'); return this._slide(); }
-  if (sink > 4.8) { this.loseGear(); return this._slide(); }                         // trem cede
+  var gk = this.gearK || 1;
+  if (sink > 4.8 * gk) { this.loseGear(); return this._slide(); }                         // trem cede
   if (side > 9) { this.loseGear(); return this._slide(); }                           // tocou atravessado
-  if (sink > 3.4 || (d.gear === 1 && sink > 2.6)) {                                  // pouso duro
+  if (sink > 3.4 * gk || (d.gear === 1 && sink > 2.6 * gk)) {                                  // pouso duro
     if (d.gear === 1) { this.loseGear(); return this._slide(); }
     d.gear = 1; this.events.push('gearDamage'); this._bounce(sink, 0.35); this.q += 0.10; return;
   }

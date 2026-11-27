@@ -13,7 +13,7 @@ var FIELDS = [
   { farm: 'Fazenda Iracema', name: 'Talhão 5', prod: 'inseticida', rate: 30, lvl: 6, cx: 900, cz: -1500, len: 1100, wid: 360, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: -1, treesW: -1 }, brief: 'Talhão 5. Rede na ponta e mata do lado!' },
   { farm: 'Fazenda São João', name: 'Talhão 3', prod: 'fungicida', rate: 30, lvl: 7, cx: 500, cz: 1100, len: 700, wid: 300, ux: 0, uz: 1, wx: 1, wz: 0, obs: { treesU: 2 }, brief: 'São João, Talhão 3. Faixa curta, capricha!' },
   { farm: 'Fazenda São João', name: 'Talhão 8', prod: 'dessecante', rate: 25, lvl: 8, cx: 1000, cz: 1200, len: 1000, wid: 360, ux: 0, uz: 1, wx: 1, wz: 0, obs: { wiresU: 2 }, brief: 'Talhão 8. Rede nas duas pontas, piloto!' },
-  { farm: 'Fazenda São João', name: 'Talhão 1', prod: 'dessecante', rate: 25, lvl: 9, cx: 1100, cz: 330, len: 1200, wid: 420, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1, treesU: -1, wiresW: -1 }, brief: 'Talhão 1, o maior. Rede e mata, piloto!' }
+  { farm: 'Fazenda São João', name: 'Talhão 1', prod: 'dessecante', rate: 40, lvl: 9, cx: 1100, cz: 330, len: 1200, wid: 420, ux: 1, uz: 0, wx: 0, wz: 1, obs: { wiresU: 1, treesU: -1, wiresW: -1 }, brief: 'Talhão 1, o maior. Vai ter que recarregar, piloto!' }
 ];
 var ACTIVE = [];                                                  // o talhão da missão em curso
 var SUN = new THREE.Vector3(0.52, 0.66, -0.38).normalize();
@@ -221,9 +221,9 @@ function buildWorld(scene, aniso) {
     };
     return sp;
   };
-  W.setLane = function (f, i) {
+  W.setLane = function (f, i, off) {
     if (!f) { lane.visible = bcn[0].visible = bcn[1].visible = lead[0].visible = lead[1].visible = false; return; }
-    var wc = -f.wid / 2 + (i + 0.5) * SWATH, l = f.len / 2, h = SWATH / 2, a = laneG.attributes.position;
+    var wc = -f.wid / 2 + (i + 0.5) * SWATH + (off || 0), l = f.len / 2, h = SWATH / 2, a = laneG.attributes.position;
     var P = function (u, w) { return [f.cx + f.ux * u + f.wx * w, f.cz + f.uz * u + f.wz * w]; }, A = P(-l, wc - h), B = P(-l, wc + h), C = P(l, wc + h), D = P(l, wc - h);
     a.setXYZ(0, A[0], 0.09, A[1]); a.setXYZ(1, B[0], 0.09, B[1]); a.setXYZ(2, C[0], 0.09, C[1]); a.setXYZ(3, D[0], 0.09, D[1]); a.needsUpdate = true;
     laneTex.repeat.set(1, f.len / 36); lane.visible = true;
@@ -461,6 +461,7 @@ function buildAircraft() {
   for (var k = -6; k <= 6; k += 1.5) if (Math.abs(k) > 0.8) add(new THREE.BoxGeometry(0.04, 0.3, 0.04), metal, k, -0.66, 0.72);
   add(new THREE.BoxGeometry(0.34, 0.3, 0.6), metal, 0, -0.78, -0.4);
   G_.traverse(function (o) { if (o.isMesh && o !== A.prop && o !== A.blur && !o.userData.noShadow) { o.castShadow = true; } });
+  A.paint = yel;
   return A;
 }
 

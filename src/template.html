@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Voo Agrícola">
+<meta name="theme-color" content="#0b120e">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Voo Agrícola</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -185,6 +190,15 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #end th,#end td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 #end th:first-child,#end td:first-child{text-align:left}
 #end th{font-weight:400;color:var(--dim);font-size:11px}
+#end-stars{color:#ffd23a !important;font-size:22px !important;letter-spacing:.12em;line-height:1 !important}
+#end-stars:empty{display:none}
+#shop .card{width:min(100%,740px);padding:12px 16px;gap:8px}
+#shop-head{display:flex;align-items:center;justify-content:space-between}
+#shop-head .money{display:flex;align-items:center;gap:6px;color:#ffe28a}
+#shop-list{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#shop-list .mis{padding:6px 9px}
+#shop-list .price{font-style:normal;font-size:11.5px;font-weight:700;color:#ffe28a;margin-top:2px}
+.mside .cta,.mside .ghost{min-height:38px;padding:7px 12px}
 #end-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #end-scorebox{flex:none;text-align:center;padding:4px 12px;border:1.5px solid var(--go);border-radius:10px}
 #end.crash #end-scorebox{border-color:var(--bad)}
@@ -233,9 +247,18 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
           <p class="sub" id="m-wallet"></p>
           <button class="cta" id="m-tilt" type="button">Pilotar inclinando o celular</button>
           <button class="ghost" id="m-stick" type="button">Pilotar com manche na tela</button>
+          <button class="ghost" id="m-shop" type="button">Hangar · gastar moedas</button>
           <p id="menu-note"></p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="shop" class="panel hidden">
+    <div class="card">
+      <div id="shop-head"><h1>Hangar</h1><p class="money"><i class="coin"></i><b id="shop-wallet"></b></p></div>
+      <div id="shop-list"></div>
+      <div class="row"><button class="cta" id="s-back" type="button">Voltar</button></div>
     </div>
   </div>
 
@@ -279,7 +302,7 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
   <div id="end" class="panel hidden">
     <div class="card">
       <div id="end-head">
-        <div><h1 id="end-title">Missão encerrada</h1><p class="sub" id="end-sub"></p></div>
+        <div><h1 id="end-title">Missão encerrada</h1><p id="end-stars"></p><p class="sub" id="end-sub"></p></div>
         <div id="end-scorebox"><b id="end-score">0</b><span>NOTA</span></div>
       </div>
       <div id="end-body"></div>
