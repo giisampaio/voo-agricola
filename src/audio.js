@@ -63,17 +63,28 @@ function makeAudio(c) {
       s.vf = s.vf || 0; s.V = s.V || 0;
       var pw = Math.max(0, Math.min(1, s.pow || 0));
       var live = s.engineOut ? 0 : 1;
+      if (s.piston) {                                                      // seis cilindros opostos, hélice bipá, sem redução: a rotação acompanha a manete
+        var rpm = 780 + 1770 * Math.pow(pw, 0.6), fb = rpm / 60 * 2, ff = rpm / 60 * 3;   // passagem de pá e frequência de explosão
+        set(p1.frequency, fb, 0.18); set(p2.frequency, ff * 1.004, 0.18); set(lfo.frequency, rpm / 60, 0.18); set(lfoG.gain, 0.5 - 0.22 * pw, 0.2);
+        set(propLP.frequency, 420 + 1900 * Math.pow(pw, 1.1), 0.2);
+        set(propG.gain, live * (0.09 + 0.17 * Math.pow(pw, 0.8)) * (s.cockpit ? 1.15 : 1), s.engineOut ? 0.5 : 0.15);
+        set(exhG.gain, live * (0.16 + 0.42 * pw), 0.25); set(exhLP.frequency, 150 + 300 * pw, 0.2);
+        set(exh2G.gain, live * (0.03 + 0.09 * pw), 0.25); set(exhBP.frequency, 300 + 380 * pw, 0.2);
+      } else {
+        set(lfoG.gain, 0.16, 0.2);
       var n = 0.52 + 0.48 * Math.pow(Math.min(1, pw / 0.4), 0.7);          // governador: rotação cheia já em ~40% de torque
-      var f0 = 110 * n;                                                    // 2.200 rpm x 3 pás = 110 Hz
-      set(p1.frequency, f0, 0.25); set(p2.frequency, f0 * 1.006 + 0.3, 0.25); set(lfo.frequency, f0 / 3, 0.25);
-      set(propLP.frequency, 650 + 2900 * Math.pow(pw, 1.1), 0.2);
-      set(propG.gain, live * (0.06 + 0.16 * Math.pow(pw, 0.8)) * (s.cockpit ? 1.15 : 1), s.engineOut ? 0.5 : 0.15);
-      set(exhG.gain, live * (0.08 + 0.32 * pw), 0.3); set(exhLP.frequency, 220 + 380 * pw, 0.2);
-      set(exh2G.gain, live * (0.02 + 0.10 * pw), 0.3); set(exhBP.frequency, 420 + 500 * pw, 0.2);
-      var ng = 0.62 + 0.38 * pw, ft = 6100 * ng;                           // rotação do gerador de gases
-      set(w1.frequency, ft * 0.7, 0.5); set(w2.frequency, ft, 0.5); set(hissBP.frequency, ft * 0.72, 0.5);
+        var f0 = 110 * n;                                                    // 2.200 rpm x 3 pás = 110 Hz
+        set(p1.frequency, f0, 0.25); set(p2.frequency, f0 * 1.006 + 0.3, 0.25); set(lfo.frequency, f0 / 3, 0.25);
+        set(propLP.frequency, 650 + 2900 * Math.pow(pw, 1.1), 0.2);
+        set(propG.gain, live * (0.06 + 0.16 * Math.pow(pw, 0.8)) * (s.cockpit ? 1.15 : 1), s.engineOut ? 0.5 : 0.15);
+        set(exhG.gain, live * (0.08 + 0.32 * pw), 0.3); set(exhLP.frequency, 220 + 380 * pw, 0.2);
+        set(exh2G.gain, live * (0.02 + 0.10 * pw), 0.3); set(exhBP.frequency, 420 + 500 * pw, 0.2);
+        var ng = 0.62 + 0.38 * pw, ft = 6100 * ng;                           // rotação do gerador de gases
+        set(w1.frequency, ft * 0.7, 0.5); set(w2.frequency, ft, 0.5); set(hissBP.frequency, ft * 0.72, 0.5);
+      }
       var near = s.onGround ? 1 : 0.45;                                    // em voo o vento e a hélice encobrem o apito
-      set(whG.gain, live * 0.034 * near * (1.2 - 0.5 * pw), 0.3); set(hissG.gain, live * 0.26 * near * (1.1 - 0.4 * pw), 0.3);
+      var tb = s.piston ? 0 : 1;                                           // motor a pistão não tem apito de turbina
+      set(whG.gain, tb * live * 0.034 * near * (1.2 - 0.5 * pw), 0.3); set(hissG.gain, tb * live * 0.26 * near * (1.1 - 0.4 * pw), 0.3);
       var q = Math.min(1.3, s.V * s.V / 4200), wv = s.cockpit ? 0.6 : 1;
       set(windG.gain, 0.11 * q * wv, 0.2); set(windBP.frequency, 480 + s.V * 11, 0.2); set(wind2G.gain, 0.20 * q * wv, 0.2);
       set(sprG.gain, s.spraying ? 0.11 : 0, 0.08); set(pumpG.gain, s.spraying ? 0.05 : 0, 0.1); set(pump.frequency, 180 + s.V * 2.6, 0.2);

@@ -14,7 +14,7 @@
   var world = buildWorld(scene, Math.min(8, renderer.capabilities.getMaxAnisotropy()));
   var PLANES = [
     { id: 'at502', t: 'Air Tractor AT-502B', d: 'O avião da frota: equilibrado para qualquer talhão.', c: 0, hop: 1890, fl: null, bars: [0.6, 0.6, 0.6] },
-    { id: 'ipanema', t: 'Embraer Ipanema 203', d: 'Leve e ágil na curva. Hopper pequeno: recarrega mais vezes.', c: 4000, hop: 950, fl: { S: 19.9, b: 11.7, c: 1.71, mZero: 1150, P: 239000 * 0.8, Ts: 5200 }, bars: [0.3, 0.35, 0.9] },
+    { id: 'ipanema', t: 'Embraer Ipanema 203', d: 'Motor a pistão, leve e ágil na curva. Hopper pequeno e sem reverso.', c: 4000, hop: 950, piston: true, noRev: true, fl: { S: 19.9, b: 11.7, c: 1.71, mZero: 1150, P: 239000 * 0.8, Ts: 5200 }, bars: [0.3, 0.35, 0.9] },
     { id: 'at802', t: 'Air Tractor AT-802', d: 'O gigante: 3.100 L e motor de sobra. Pesado na curva.', c: 12000, hop: 3100, fl: { S: 37.3, b: 18.1, c: 2.06, mZero: 3100, P: 1007000 * 0.72, Ts: 19500 }, bars: [1, 1, 0.4] }
   ], planes = {}, plane = null;
   PLANES.forEach(function (p) { planes[p.id] = buildAircraft(p.id); });
@@ -110,11 +110,11 @@
   // ---------- entradas na tela ----------
   var joy = { x: 0, y: 0, id: null }, keys = {}, kStick = { x: 0, y: 0 };
   var thrHeld = function () { return false; };
-  var P0 = 0.2, lever = P0, reverse = 0, brake = 0, rud = { bar: 0, id: null, l: 0, r: 0, val: 0, auto: null, px: 99 };
+  var noRev = false, P0 = 0.2, lever = P0, reverse = 0, brake = 0, rud = { bar: 0, id: null, l: 0, r: 0, val: 0, auto: null, px: 99 };
   function expo(x) { var d = 0.04, a = Math.abs(x); if (a < d) return 0; a = (a - d) / (1 - d); return (x < 0 ? -1 : 1) * Math.pow(Math.min(a, 1), 1.35); }
   // manete: batente de marcha lenta em 20% do curso; abaixo dele é reverso, liberado só no solo
   function setLever(p) {
-    p = clamp(p, 0, 1); if (!flight.onGround && p < P0) p = P0; if (Math.abs(p - P0) < 0.035) p = P0;
+    p = clamp(p, 0, 1); if ((!flight.onGround || noRev) && p < P0) p = P0; if (Math.abs(p - P0) < 0.035) p = P0;
     lever = p; throttle = p > P0 ? (p - P0) / (1 - P0) : 0; reverse = p < P0 ? (P0 - p) / P0 : 0;
     var k = $('thr-knob'), f = $('thr-fill'); k.style.bottom = (p * 100) + '%'; k.textContent = reverse > 0 ? 'REV' : 'PWR'; k.classList.toggle('rev', reverse > 0);
     f.style.bottom = (Math.min(p, P0) * 100) + '%'; f.style.height = (Math.abs(p - P0) * 100) + '%'; f.classList.toggle('rev', reverse > 0);
@@ -216,7 +216,7 @@
   function updateAudio(active, dt) {
     if (!au) return;
     auT -= dt; if (auT > 0) return; auT = 0.05; dt = 0.05;
-    au.update({ on: active && opt.sound, pow: flight.pow, V: flight.V, vf: flight.vf, onGround: flight.onGround, spraying: spraying && flight.hopper > 0,
+    au.update({ piston: !!planeDef(wallet.plane).piston, on: active && opt.sound, pow: flight.pow, V: flight.V, vf: flight.vf, onGround: flight.onGround, spraying: spraying && flight.hopper > 0,
       stall: !flight.onGround && !flight.crashed && flight.alpha > AC.aWarn, cockpit: camMode === 1, dt: dt, engineOut: flight.dmg.engine, fire: flight.dmg.fire });
   }
 
@@ -462,6 +462,7 @@
   function applyMode() { $('hud').classList.toggle('stick', mode !== 'tilt'); }
   function resetGame() {
     windSp = windOf(free ? null : mission); wind.set(-0.66 * windSp, 0, 0.75 * windSp); flight.gearK = wallet.own.trem ? 1.25 : 1; reloadT = 0; stats.reloads = 0;
+    noRev = !!planeDef(wallet.plane).noRev; $('thr').classList.toggle('norev', noRev);
     showPlane(wallet.plane); applyPaint(); setAircraftType(planeDef(wallet.plane).fl, wallet.own.motor ? 1.1 : 1);
     START.hopper = free ? HOP() : missionLoad(mission); flight.reset(START); resetFields(free ? FIELDS : mission); world.markField(free ? null : mission); spray.clear(); fire.clear(); smoke.clear(); world.setObstacles(free ? FIELDS : [mission]); wreckT = 0; stopT = 0;
     debris.forEach(function (d) { scene.remove(d.o); }); debris.length = 0; plane.wings[0].visible = plane.wings[1].visible = true; plane.gearParts.forEach(function (m) { m.visible = true; }); $('h-dmg').textContent = '';
