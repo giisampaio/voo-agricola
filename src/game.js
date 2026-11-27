@@ -193,13 +193,13 @@
   var VOICE = { 'Piloto, trabalhar, piloto!': 'eliseu-trabalhar', 'Recarrega e volta pro serviço, piloto!': 'eliseu-recarrega', 'Ê, piloto, vai me falir! Tá jogando veneno no vento!': 'eliseu-falir', 'Ó, piloto bão!': 'eliseu-bao', 'Ó, piloto ruim, meu Deuuus!': 'eliseu-ruim', 'Ó, piloto vai ficar rico!': 'eliseu-rico',
     'Parabéns, piloto! Pousa aqui, vem tomar café da fazenda!': 'eliseu-fim-1', 'Serviço fechado, piloto! O café já tá passado.': 'eliseu-fim-2', 'Aí sim, piloto! Pousa que tem bolo de milho.': 'eliseu-fim-3' }, voiceBuf = {}, voiceAsked = false;
   FIELDS.forEach(function (f, k) { if (f.brief) VOICE[f.brief] = 'eliseu-missao-' + (k + 1); });
-  function loadVoices() {
-    if (voiceAsked || !au || !/github\.io$/.test(location.hostname)) return; voiceAsked = true;
-    Object.keys(VOICE).forEach(function (t) { var s = VOICE[t]; fetch('audio/' + s + '.mp3').then(function (r) { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(function (ab) { au.ctx.decodeAudioData(ab, function (b) { voiceBuf[s] = b; }, function () { }); }).catch(function () { }); });
-  }
+  var voiceRaw = {}, voiceSrc = null;
+  if (/github\.io$/.test(location.hostname)) Object.keys(VOICE).forEach(function (t) { var s = VOICE[t]; fetch('audio/' + s + '.mp3').then(function (r) { if (!r.ok) throw 0; return r.arrayBuffer(); }).then(function (ab) { voiceRaw[s] = ab; decodeVoices(); }).catch(function () { }); });   // baixa já no menu
+  function decodeVoices() { if (!au) return; Object.keys(voiceRaw).forEach(function (s) { var ab = voiceRaw[s]; delete voiceRaw[s]; try { au.ctx.decodeAudioData(ab, function (bf) { voiceBuf[s] = bf; }, function () { }); } catch (e) { } }); }
+  function loadVoices() { decodeVoices(); }
   function voice(text) {                                             // devolve a duração, para o balão ficar na tela até a fala acabar
     var b = voiceBuf[VOICE[text]]; if (!b || !au || !opt.sound) return 0;
-    try { var s = au.ctx.createBufferSource(), gn = au.ctx.createGain(); s.buffer = b; gn.gain.value = 1.6; s.connect(gn); gn.connect(au.ctx.destination); s.start(); return b.duration; } catch (e) { return 0; }
+    try { if (voiceSrc) { try { voiceSrc.stop(); } catch (x) { } } var s = au.ctx.createBufferSource(), gn = au.ctx.createGain(); voiceSrc = s; s.buffer = b; gn.gain.value = 1.6; s.connect(gn); gn.connect(au.ctx.destination); s.start(); return b.duration; } catch (e) { return 0; }
   }
   function sfx(name, v) { if (au && opt.sound && state === 'play') { try { au.event(name, v); } catch (e) { } } }
   var auT = 0;
@@ -228,7 +228,7 @@
     if (talkT > 0) { talkT -= dt; if (talkT <= 0) { show('nal', false); $('hud').classList.remove('talk'); talkT = talkQ.length ? -0.35 : 0; } }
     else if (talkT < 0) { talkT = Math.min(0, talkT + dt); }
     if (talkT === 0 && talkQ.length && talkQ[0].at <= simT) { var it = talkQ.shift(), t = it.t, uri = FACES[it.who]; $('nal-t').textContent = t;
-      if (uri) { $('nal-img').src = uri; $('nal-pic').classList.add('has'); } else { $('nal-pic').classList.remove('has'); $('nal-pic').lastChild.textContent = it.who === 'nal' ? 'N' : 'E'; } $('nal').className = it.who === 'nal' ? '' : 'boss ' + it.who; show('msg', false); msgT = 0; show('nal', true); $('hud').classList.add('talk'); talkT = clamp(2.0 + t.length * 0.05, 3, 4.8); var vd = it.who === 'nal' ? 0 : voice(t); if (vd) talkT = Math.max(talkT, vd + 0.5); else sfx('valve', 1); }
+      if (uri) { $('nal-img').src = uri; $('nal-pic').classList.add('has'); } else { $('nal-pic').classList.remove('has'); $('nal-pic').lastChild.textContent = it.who === 'nal' ? 'N' : 'E'; } $('nal').className = it.who === 'nal' ? '' : 'boss ' + it.who; show('msg', false); msgT = 0; show('nal', true); $('hud').classList.add('talk'); talkT = clamp(2.0 + t.length * 0.05, 3, 4.8); var vd = it.who === 'nal' ? 0 : voice(t); if (vd) talkT = Math.max(talkT, vd + 0.5); else { sfx('valve', 1); if (VOICE[t] && it.who !== 'nal') setTimeout(function () { if (talkT > 0 && $('nal-t').textContent === t) { var d2 = voice(t); if (d2) talkT = Math.max(talkT, d2 + 0.3); } }, 700); } }
   }
   $('nal').addEventListener('click', function () { if (talkT > 0.2) talkT = 0.05; });
   function ref() { if (!free) return mission; var b = FIELDS[0], bd = 1e9; FIELDS.forEach(function (f) { var d = fieldDist(f); if (d < bd) { bd = d; b = f; } }); return b; }
