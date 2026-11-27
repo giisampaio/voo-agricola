@@ -21,6 +21,11 @@ var AC = {
   tips: [[-7.9, -0.4, 0], [7.9, -0.4, 0]],
   nose: [0, -1.3, -4.8]
 };
+var AC_BASE = { S: AC.S, b: AC.b, c: AC.c, mZero: AC.mZero, P: AC.P, Ts: AC.Ts, Ixx: AC.Ixx, Iyy: AC.Iyy, Izz: AC.Izz };
+function setAircraftType(o, kP) {                                   // troca asa, peso e motor; a inércia acompanha para a resposta dos comandos ficar igual
+  o = o || AC_BASE; AC.S = o.S; AC.b = o.b; AC.c = o.c; AC.mZero = o.mZero; AC.P = o.P * (kP || 1); AC.Ts = o.Ts * (kP || 1);
+  var kb = (o.S * o.b) / (AC_BASE.S * AC_BASE.b), kc = (o.S * o.c) / (AC_BASE.S * AC_BASE.c); AC.Ixx = AC_BASE.Ixx * kb; AC.Izz = AC_BASE.Izz * kb; AC.Iyy = AC_BASE.Iyy * kc;
+}
 
 function clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
 function sstep(x, a, b) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
@@ -298,4 +303,4 @@ Flight.prototype._contact = function (which, sink) {
   this._placeOnGround(); this._setQuat(); this.agl = 0; this.events.push('touch');
 };
 
-if (typeof module !== 'undefined') module.exports = { Flight: Flight, AC: AC, aeroCoef: aeroCoef, thrust: thrust, D2R: D2R, MS2KT: MS2KT, M2FT: M2FT, RHO: RHO };
+if (typeof module !== 'undefined') module.exports = { Flight: Flight, AC: AC, aeroCoef: aeroCoef, thrust: thrust, D2R: D2R, MS2KT: MS2KT, M2FT: M2FT, RHO: RHO, setAircraftType: setAircraftType };

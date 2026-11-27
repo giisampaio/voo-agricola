@@ -190,6 +190,65 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
 #end th,#end td{padding:4px 6px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 #end th:first-child,#end td:first-child{text-align:left}
 #end th{font-weight:400;color:var(--dim);font-size:11px}
+.panel.home{background:linear-gradient(180deg,rgba(8,14,10,.55),rgba(8,14,10,0) 22%,rgba(8,14,10,0) 52%,rgba(8,14,10,.88) 78%);display:block;padding:0}
+#hm-stage{position:absolute;left:0;top:0;right:0;bottom:0;touch-action:none}
+#hm-top{position:absolute;left:var(--sl);right:var(--sr);top:var(--st);display:flex;align-items:center;gap:12px;pointer-events:none}
+#hm-top>*{pointer-events:auto}
+#hm-brand{display:flex;align-items:center;gap:8px;font-size:19px}
+#hm-pilot{display:flex;align-items:center;gap:6px;margin-left:auto;padding:4px 10px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+#hm-pilot span{font:700 10px var(--f-num);letter-spacing:.1em;color:var(--dim)}
+#pilot{width:118px;background:transparent;border:0;outline:0;color:var(--ink);font:700 15px var(--f-ui);-webkit-user-select:text;user-select:text;touch-action:auto;padding:2px 0}
+#pilot::placeholder{color:var(--dim);font-weight:400}
+#hm-coins{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--panel);border:1px solid var(--line);border-radius:9px;color:#ffe28a;font:700 15px var(--f-num)}
+#hm-lv{font:700 10px var(--f-num);color:var(--go);margin-left:4px}
+.arrow{position:absolute;top:38%;width:46px;height:46px;border-radius:50%;background:var(--panel);border:1.5px solid var(--line);color:var(--ink);font-size:17px}
+#pl-prev{left:var(--sl)}#pl-next{right:var(--sr)}
+#hm-bar{position:absolute;left:var(--sl);right:var(--sr);bottom:var(--sb);display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.25fr) minmax(0,1fr);gap:12px;align-items:end}
+#hm-plane,#hm-custom,#hm-detail{background:rgba(10,18,14,.8);border:1px solid var(--line);border-radius:12px;padding:8px 11px}
+#pl-head{display:flex;flex-direction:column;gap:2px;margin-bottom:5px}
+#pl-name{font-size:15px;line-height:1.15}
+#pl-tag{align-self:flex-start;font:700 10px var(--f-num);letter-spacing:.08em;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.12);color:var(--dim)}
+#pl-tag.on{background:var(--go);color:#07200c}#pl-tag.buy{background:#ffe28a;color:#2a1f00}
+.stat{display:grid;grid-template-columns:68px 1fr auto;align-items:center;gap:6px;margin-top:3px}
+.stat span{font:700 9.5px var(--f-num);letter-spacing:.06em;color:var(--dim)}
+.stat i{height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.stat u{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+.stat em{font:700 10px var(--f-num);font-style:normal;color:var(--ink)}
+.lbl{font:700 9.5px var(--f-num);letter-spacing:.1em;color:var(--dim);margin:1px 0 4px}
+#hm-paints{display:flex;gap:7px;margin-bottom:7px}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.35);padding:0;position:relative;flex:none}
+.sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}.sw.pick{transform:scale(1.14)}
+.sw.lock::after{content:"";position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;background:#ffe28a;border:1.5px solid #2a1f00}
+#hm-equip{display:flex;gap:7px}
+.eq{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px 3px;border-radius:9px;background:transparent;border:1.5px solid var(--line);color:var(--dim)}
+.eq svg{width:26px;height:26px}.eq span{font:700 9.5px var(--f-num);color:#ffe28a}
+.eq.on{color:var(--go);border-color:var(--go);background:rgba(123,227,106,.1)}.eq.on span{color:var(--go)}
+.eq.pick{border-color:var(--accent);background:rgba(243,192,16,.12)}
+#hm-side{display:flex;flex-direction:column;gap:6px}
+#hm-detail{display:flex;flex-direction:column;gap:2px;min-height:44px}
+#hm-ti{font-size:13px}#hm-de{font-size:11px;line-height:1.3;color:var(--dim)}
+#hm-side .ghost{flex:none;min-height:34px;padding:6px 10px;font-size:13px;border-color:#ffe28a;color:#ffe28a}
+#hm-side .ghost:disabled{opacity:.45}
+#hm-go{flex:none;min-height:50px;font-size:19px;letter-spacing:.06em}
+#msel{display:flex;align-items:center;gap:14px;background:rgba(8,14,10,.6)}
+#map{flex:none;border-radius:12px;border:1px solid var(--line)}
+#ms-card{flex:1 1 0;min-width:0;max-height:100%;overflow:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:7px;padding:12px 14px;background:rgba(10,18,14,.86);border:1px solid var(--line);border-radius:14px}
+#ms-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+#ms-head h1{margin:0;font-size:21px}#ms-head p{margin:0;font-size:12px}
+#ms-stars{color:#ffd23a;font-size:20px !important;letter-spacing:.1em;white-space:nowrap}
+#ms-chips{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:5px}
+.chip{display:flex;flex-direction:column;gap:1px;padding:5px 7px;border-radius:8px;background:rgba(255,255,255,.07)}
+.chip b{font:700 11.5px var(--f-num);white-space:nowrap}.chip span{font:700 9px var(--f-num);letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+#ms-card .cta,#ms-card .ghost{flex:none;min-height:40px;padding:8px 12px}
+#ms-card .small{min-height:32px;font-size:12.5px;padding:5px 10px}
+#ms-free{padding:5px 10px}
+#stage.narrow #hm-brand b{display:none}
+#stage.narrow #hm-bar{gap:7px}
+#stage.narrow .sw{width:25px;height:25px}
+#stage.narrow #hm-paints{gap:5px}
+#stage.narrow .stat{grid-template-columns:58px 1fr auto}
+#stage.short #hm-go{min-height:42px}
+#stage.short .arrow{top:30%}
 #end-stars{color:#ffd23a !important;font-size:22px !important;letter-spacing:.12em;line-height:1 !important}
 #end-stars:empty{display:none}
 #shop .card{width:min(100%,740px);padding:12px 16px;gap:8px}
@@ -237,28 +296,44 @@ button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
     <div id="joy" aria-label="Manche"><div id="joy-knob"></div></div>
   </div>
 
-  <div id="menu" class="panel">
-    <div class="card">
-      <h1>Voo Agrícola<span class="tag">FASE BETA</span></h1>
-      <div class="mgrid">
-        <div id="missions"></div>
-        <div class="mside">
-          <p class="sub" id="m-info"></p>
-          <p class="sub" id="m-wallet"></p>
-          <button class="cta" id="m-tilt" type="button">Pilotar inclinando o celular</button>
-          <button class="ghost" id="m-stick" type="button">Pilotar com manche na tela</button>
-          <button class="ghost" id="m-shop" type="button">Hangar · gastar moedas</button>
-          <p id="menu-note"></p>
-        </div>
+  <div id="menu" class="panel home">
+    <div id="hm-stage"></div>
+    <div id="hm-top">
+      <div id="hm-brand"><b>Voo Agrícola</b><span class="tag">BETA</span></div>
+      <label id="hm-pilot"><span>CMTE.</span><input id="pilot" type="text" maxlength="14" placeholder="seu nome" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done"></label>
+      <div id="hm-coins"><i class="coin"></i><b id="m-wallet"></b><span id="hm-lv"></span></div>
+    </div>
+    <button class="arrow" id="pl-prev" type="button" aria-label="Avião anterior">&#9664;</button>
+    <button class="arrow" id="pl-next" type="button" aria-label="Próximo avião">&#9654;</button>
+    <div id="hm-bar">
+      <div id="hm-plane">
+        <div id="pl-head"><b id="pl-name"></b><span id="pl-tag"></span></div>
+        <div class="stat"><span>HOPPER</span><i><u id="b-hop"></u></i><em id="pl-hop"></em></div>
+        <div class="stat"><span>POTÊNCIA</span><i><u id="b-pot"></u></i></div>
+        <div class="stat"><span>AGILIDADE</span><i><u id="b-agi"></u></i></div>
+      </div>
+      <div id="hm-custom">
+        <div class="lbl">PINTURA</div><div id="hm-paints"></div>
+        <div class="lbl">EQUIPAMENTO</div><div id="hm-equip"></div>
+      </div>
+      <div id="hm-side">
+        <div id="hm-detail"><b id="hm-ti"></b><span id="hm-de"></span></div>
+        <button class="ghost" id="hm-act" type="button"></button>
+        <button class="cta" id="hm-go" type="button">VOAR &#9654;</button>
       </div>
     </div>
   </div>
 
-  <div id="shop" class="panel hidden">
-    <div class="card">
-      <div id="shop-head"><h1>Hangar</h1><p class="money"><i class="coin"></i><b id="shop-wallet"></b></p></div>
-      <div id="shop-list"></div>
-      <div class="row"><button class="cta" id="s-back" type="button">Voltar</button></div>
+  <div id="msel" class="panel hidden">
+    <canvas id="map" aria-label="Mapa das fazendas"></canvas>
+    <div id="ms-card">
+      <div id="ms-head"><div><h1 id="ms-ti"></h1><p class="sub" id="ms-sub"></p></div><p id="ms-stars"></p></div>
+      <div id="ms-chips"></div>
+      <button class="mis" id="ms-free" type="button" aria-pressed="false"><b>Voo livre</b><span>Todos os talhões de uma vez</span></button>
+      <button class="cta" id="m-tilt" type="button">Voar inclinando o celular</button>
+      <button class="ghost" id="m-stick" type="button">Voar com manche na tela</button>
+      <button class="ghost small" id="ms-back" type="button">&#9664; Hangar</button>
+      <p id="menu-note"></p>
     </div>
   </div>
 

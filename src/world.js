@@ -414,33 +414,40 @@ function wingDecal(xa, xb) {
   for (i = 0; i < n; i++) { var a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
   var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
-function buildAircraft() {
-  var G_ = new THREE.Group(), A = { group: G_ };
+var PLANE_SHAPE = {                                                 // nz: desloca o nariz; pás da hélice; diedro; winglet; cabine mais longa; escala visual
+  at502: { nz: 0, blades: 3, dih: 3.5, winglet: false, cab: 1, s: 1 },
+  ipanema: { nz: 0.85, blades: 2, dih: 6, winglet: true, cab: 0.86, s: 0.86 },
+  at802: { nz: -0.55, blades: 5, dih: 3.5, winglet: false, cab: 1.3, s: 1.12 }
+};
+function buildAircraft(kind) {
+  var O = PLANE_SHAPE[kind] || PLANE_SHAPE.at502, NZ = O.nz, fz = function (st) { return st.map(function (p) { var q = p.slice(); if (q[0] < -1.9) q[0] += NZ; return q; }); };
+  var G0 = new THREE.Group(), G_ = new THREE.Group(), A = { group: G0, yOff: -1.9 * (1 - O.s) }; G_.scale.setScalar(O.s); G0.add(G_);
   var std = function (hex, r, m) { return new THREE.MeshStandardMaterial({ color: col(hex), roughness: r, metalness: m || 0, side: THREE.DoubleSide }); };
   var yel = std('#f3c010', 0.42, 0.05), blue = std('#1b3c7c', 0.45, 0.05), dark = std('#22262a', 0.6, 0.2), metal = std('#a9aeb2', 0.35, 0.7), tire = std('#141414', 0.9, 0);
   var add = function (geo, mat, x, y, z, parent) { var m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); (parent || G_).add(m); return m; };
-  add(loftBody([[-4.62, 0.30, 0.30, 0.05], [-4.2, 0.43, 0.43, 0.05], [-3.2, 0.52, 0.56, 0.06], [-2.0, 0.58, 0.70, 0.12], [-0.6, 0.60, 0.80, 0.20], [0.5, 0.58, 0.82, 0.22], [1.7, 0.50, 0.70, 0.18], [2.9, 0.35, 0.50, 0.12], [4.0, 0.19, 0.33, 0.08], [4.95, 0.05, 0.18, 0.10]], 16, 0.78), yel);
-  add(loftBody([[-4.0, 0.36, 0.05, 0.50], [-2.1, 0.44, 0.05, 0.82], [-0.5, 0.40, 0.05, 1.0]], 8, 1), dark);                    // painel antirreflexo
-  var sp = add(new THREE.ConeGeometry(0.3, 0.62, 16), metal, 0, 0.05, -4.92); sp.rotation.x = -Math.PI / 2;
-  [-1, 1].forEach(function (s) { var ex = add(new THREE.CylinderGeometry(0.08, 0.1, 0.7, 8), dark, s * 0.5, -0.12, -3.75); ex.rotation.set(Math.PI / 2.4, 0, -s * 0.5); });
+  add(loftBody(fz([[-4.62, 0.30, 0.30, 0.05], [-4.2, 0.43, 0.43, 0.05], [-3.2, 0.52, 0.56, 0.06], [-2.0, 0.58, 0.70, 0.12], [-0.6, 0.60, 0.80, 0.20], [0.5, 0.58, 0.82, 0.22], [1.7, 0.50, 0.70, 0.18], [2.9, 0.35, 0.50, 0.12], [4.0, 0.19, 0.33, 0.08], [4.95, 0.05, 0.18, 0.10]]), 16, 0.78), yel);
+  add(loftBody(fz([[-4.0, 0.36, 0.05, 0.50], [-2.1, 0.44, 0.05, 0.82], [-0.5, 0.40, 0.05, 1.0]]), 8, 1), dark);                    // painel antirreflexo
+  var sp = add(new THREE.ConeGeometry(0.3, 0.62, 16), metal, 0, 0.05, -4.92 + NZ); sp.rotation.x = -Math.PI / 2;
+  [-1, 1].forEach(function (s) { var ex = add(new THREE.CylinderGeometry(0.08, 0.1, 0.7, 8), dark, s * 0.5, -0.12, -3.75 + NZ); ex.rotation.set(Math.PI / 2.4, 0, -s * 0.5); });
   // hélice: disco borrado
   var ptex = canvasTex(128, 128, function (g, w, h) {
     g.translate(64, 64);
-    for (var k = 0; k < 3; k++) { g.rotate(Math.PI * 2 / 3); var gr = g.createLinearGradient(0, 0, 0, -62); gr.addColorStop(0, 'rgba(20,20,20,0)'); gr.addColorStop(0.3, 'rgba(25,25,25,0.75)'); gr.addColorStop(0.92, 'rgba(25,25,25,0.75)'); gr.addColorStop(1, 'rgba(240,200,0,0.9)'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, -34, 5.5, 29, 0, 0, 6.3); g.fill(); }
+    for (var k = 0; k < O.blades; k++) { g.rotate(Math.PI * 2 / O.blades); var gr = g.createLinearGradient(0, 0, 0, -62); gr.addColorStop(0, 'rgba(20,20,20,0)'); gr.addColorStop(0.3, 'rgba(25,25,25,0.75)'); gr.addColorStop(0.92, 'rgba(25,25,25,0.75)'); gr.addColorStop(1, 'rgba(240,200,0,0.9)'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, -34, 5.5, 29, 0, 0, 6.3); g.fill(); }
   });
-  A.prop = add(new THREE.CircleGeometry(1.35, 32), new THREE.MeshBasicMaterial({ map: ptex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }), 0, 0.05, -4.8);
-  A.blur = add(new THREE.CircleGeometry(1.35, 32), new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }), 0, 0.05, -4.79);
+  A.prop = add(new THREE.CircleGeometry(1.35, 32), new THREE.MeshBasicMaterial({ map: ptex, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }), 0, 0.05, -4.8 + NZ);
+  A.blur = add(new THREE.CircleGeometry(1.35, 32), new THREE.MeshBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }), 0, 0.05, -4.79 + NZ);
   // cabine
-  A.canopy = add(loftBody([[0.05, 0.30, 0.10, 0.98], [0.45, 0.44, 0.50, 1.02], [1.25, 0.44, 0.56, 1.02], [2.0, 0.36, 0.34, 0.86], [2.9, 0.12, 0.08, 0.62]], 12, 0.7), std('#16222c', 0.12, 0.6));
+  A.canopy = add(loftBody([[0.05, 0.30, 0.10, 0.98], [0.45, 0.44, 0.50, 1.02], [1.25, 0.44, 0.56, 1.02], [2.0, 0.36, 0.34, 0.86], [2.9, 0.12, 0.08, 0.62]], 12, 0.7), std('#16222c', 0.12, 0.6)); A.canopy.scale.z = O.cab; A.canopy.position.z = (1 - O.cab) * 0.4;
   add(new THREE.BoxGeometry(0.5, 0.05, 1.5), yel, 0, 1.58, 0.95);
   // asas
   var DKL = (0.82 - 0.20) * 1.45 * LOGO_ASPECT, ltex = new THREE.TextureLoader().load(LOGO_URI); ltex.encoding = THREE.sRGBEncoding; ltex.anisotropy = 8;
   var dkMat = new THREE.MeshStandardMaterial({ map: ltex, transparent: true, alphaTest: 0.03, roughness: 0.5, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
-  var DIH = 3.5 * D2R; A.ail = []; A.flaps = []; A.wings = []; A.gearParts = [];
+  var DIH = O.dih * D2R; A.ail = []; A.flaps = []; A.wings = []; A.gearParts = [];
   [-1, 1].forEach(function (s) {
     var wg = new THREE.Group(); wg.position.set(0, -0.52, 0); wg.rotation.z = s * DIH; G_.add(wg); A.wings.push(wg);
     add(loftWing(s * 0.3, s * 7.55, 1.45, 1.45, -1.05, -1.05, 0, 0, 0.15), yel, 0, 0, 0, wg);
     add(loftWing(s * 7.55, s * 7.92, 1.45, 1.15, -1.05, -0.95, 0, 0.1, 0.13), blue, 0, 0, 0, wg);
+    if (O.winglet) add(loftWing(s * 7.92, s * 8.12, 1.15, 0.6, -0.95, -0.55, 0.1, 1.15, 0.09), blue, 0, 0, 0, wg);
     var surf = function (xa, xb, list) { var h = new THREE.Group(); h.position.set(s * (xa + xb) / 2, 0.03, 0.40); wg.add(h); add(new THREE.BoxGeometry(xb - xa - 0.04, 0.06, 0.38), yel, 0, 0, 0.19, h); list.push(h); };
     surf(0.62, 4.1, A.flaps); surf(4.1, 7.5, A.ail);
     var dk = new THREE.Mesh(wingDecal(s > 0 ? 1.6 : -1.6 - DKL, s > 0 ? 1.6 + DKL : -1.6), dkMat); dk.userData.noShadow = true; dk.renderOrder = 2; wg.add(dk);
@@ -460,7 +467,7 @@ function buildAircraft() {
   var boom = add(new THREE.CylinderGeometry(0.035, 0.035, 13.4, 6), metal, 0, -0.80, 0.78); boom.rotation.z = Math.PI / 2;
   for (var k = -6; k <= 6; k += 1.5) if (Math.abs(k) > 0.8) add(new THREE.BoxGeometry(0.04, 0.3, 0.04), metal, k, -0.66, 0.72);
   add(new THREE.BoxGeometry(0.34, 0.3, 0.6), metal, 0, -0.78, -0.4);
-  G_.traverse(function (o) { if (o.isMesh && o !== A.prop && o !== A.blur && !o.userData.noShadow) { o.castShadow = true; } });
+  G0.traverse(function (o) { if (o.isMesh && o !== A.prop && o !== A.blur && !o.userData.noShadow) { o.castShadow = true; } });
   A.paint = yel;
   return A;
 }
